@@ -1,7 +1,11 @@
 # ESP_MQTTClient
 A client program for the ESP8266 designed for the 
 Arduino platform but can be ported to straight C 
-for other microcontrollers. 
+for other microcontrollers. There is a Reliance
+on Strings for this Library which makes it easy
+to use, a more efficient library is being developed
+that will get rid of most use of Strings and
+making is more reliable and efficient.
 
 Author: Baden Morgan
 
