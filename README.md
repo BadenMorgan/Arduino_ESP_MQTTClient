@@ -1,11 +1,7 @@
 # ESP_MQTTClient
-A client program for the ESP8266 designed for the 
-Arduino platform but can be ported to straight C 
-for other microcontrollers. There is a Reliance
-on Strings for this Library which makes it easy
-to use, a more efficient library is being developed
-that will get rid of most use of Strings and
-making is more reliable and efficient.
+A client program for the ESP8266 designed for the
+Arduino platform but can be ported to straight C
+for other microcontrollers.
 
 Author: Baden Morgan
 
@@ -17,12 +13,6 @@ https://room-15.github.io/blog/2015/03/26/esp8266-at-command-reference/
 For further instructions on how to setup
 Your ESP8266 follow the instructions at:
 http://www.xess.com/blog/esp8266-reflash/
-
-This code uses a nokia display to output
-messages on connectivity bases, this was
-for my personal use. You can exclude this
-by commenting out the relevant definitions
-which can also be used to
 
 The code relating to mqtt is all based
 on the documentation of mqtt v3.1.1
@@ -40,7 +30,9 @@ Please note that This code is not
 intended for sale by anyone and is
 opensource. If you do intend to use
 this software all I ask is that you
-give me credit were it is due
+give me credit were it is due. By
+downloading and using this you accept
+to not charge for this software.
 
 *Programming notes
 First when putting in your prarameters dont 
