@@ -57,3 +57,12 @@ if you need that. The example sketch isnt
 as easy to use as i would have like it to 
 be however this is a somewhat complicated 
 program and its the best i could do
+
+*Server notes
+A local server like mosquitto running
+on a raspberry pi is much more reliable
+than a remote server like cloud mqtt in
+my expereince so I suggest testing your 
+code on a local server before dealing
+with a remote server to figure out what
+is giving you problems
