@@ -59,7 +59,7 @@ possibility of such damage.
 #define ESP8266_h
 #include "SoftReset.h"
 
-extern byte retries;
+
 
 class ESP8266 {
 

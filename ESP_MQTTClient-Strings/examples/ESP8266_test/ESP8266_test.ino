@@ -6,10 +6,12 @@
 #define SSID "MorganOnly"
 #define Pass "1234m0rg@n2015"
 
-#define SERVER "10.0.0.23" //"m11.cloudmqtt.com"  //host for mosquitto broker
-#define PORT 1883  //18675  //port number for mosquitto broker
-//#define password "S3i9xIc5KAJF"
-//#define username "ubexgazz"
+//#define SERVER "10.0.0.23" //"m11.cloudmqtt.com"  //host for mosquitto broker
+//#define PORT 1883  //18675  //port number for mosquitto broker
+#define SERVER "m11.cloudmqtt.com"  //host for mosquitto broker
+#define PORT 18675  //port number for mosquitto broker
+#define password "S3i9xIc5KAJF"
+#define username "ubexgazz"
 #define ID "esp_device0"
 
 int count = 0;
@@ -20,14 +22,14 @@ uint32_t stamp4 = 0;
 
 int PublishInterval = 5000;
 
-ESP8266 esp8266(500);
+ESP8266 esp8266(1000);
 
-byte retries = 0;
 byte allretries = 0;
 
 void setup() {
   pinMode(7, OUTPUT);
   pinMode(12, OUTPUT);
+  //esp8266.InitComms();
   initESP8266();
 }
 
@@ -46,7 +48,7 @@ void loop() {
 void MQTTProcess() {
   byte connectdCheck = esp8266.RTNConnected();
   if (connectdCheck == 1) {
-    if (millis() - stamp4 >= 1000) {//play around with shortening
+    if (millis() - stamp4 >= 100) {//play around with shortening
       stamp4 = millis();
       SubExec(esp8266.MQTTSubCheck());
     }
@@ -56,10 +58,9 @@ void MQTTProcess() {
     }
 
   }
-  if (!connectdCheck && (millis() - stamp >= 300000)) {
-    //esp8266.MQTTConnect(SERVER, PORT, ID, username, password);
-    esp8266.MQTTConnect(SERVER, PORT, ID);
-    retries = 0;
+  if (!connectdCheck && (millis() - stamp >= 10000)) {
+    esp8266.MQTTConnect(SERVER, PORT, ID, username, password);
+    //esp8266.MQTTConnect(SERVER, PORT, ID);
     allretries++;
     if (!esp8266.RTNConnected()) {
       if (allretries == 3) {
@@ -86,8 +87,8 @@ void initESP8266() {
   if(!esp8266.WifiCheck(SSID)){
     esp8266.Connect(SSID, Pass);
   }
-  //esp8266.MQTTConnect(SERVER, PORT, ID, username, password);
-  esp8266.MQTTConnect(SERVER, PORT, ID);
+  esp8266.MQTTConnect(SERVER, PORT, ID, username, password);
+  //esp8266.MQTTConnect(SERVER, PORT, ID);
   if (esp8266.RTNConnected() == 1) {
     SubhQue();    
   }
