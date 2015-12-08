@@ -3,33 +3,37 @@
 #include <Wire.h>
 #include <ESP8266.h>
 
-#define SSID "MorganOnly"
-#define Pass "1234m0rg@n2015"
+//WIFI Login details
+#define SSID "YourSSIDName"
+#define Pass "YourSSIDPass"
 
-//#define SERVER "10.0.0.23" //"m11.cloudmqtt.com"  //host for mosquitto broker
-//#define PORT 1883  //18675  //port number for mosquitto broker
-#define SERVER "m11.cloudmqtt.com"  //host for mosquitto broker
-#define PORT 18675  //port number for mosquitto broker
-#define password "S3i9xIc5KAJF"
-#define username "ubexgazz"
+//connectiong Details for broker CONNEC message
+#define SERVER "test.mosquitto.org/"  //host for mosquitto broker
+#define PORT 1883 //port number for mosquitto broker
+#define password "pass"
+#define username "user"
 #define ID "esp_device0"
 
+//used to count the messages being published and append to each message
 int count = 0;
 
+//used for timers to determine when to trigger an mqtt action
 uint32_t stamp = 0;
 uint32_t stamp3 = 0;
 uint32_t stamp4 = 0;
 
+//used to determine at what interval to publish messages
 int PublishInterval = 5000;
 
+//Declare esp8266 and setup waittime
 ESP8266 esp8266(1000);
 
+//count the amount of times the device has failed its connection loop
 byte allretries = 0;
 
 void setup() {
   pinMode(7, OUTPUT);
   pinMode(12, OUTPUT);
-  //esp8266.InitComms();
   initESP8266();
 }
 
