@@ -1,3 +1,10 @@
+/*
+ * Debugging Notes:
+ * debugging on port 9  can be turned off by
+ * commenting out _DEBUG_  you can also use a
+ * more extensive debugger by commenting in 
+ * ALLDEBUG
+ */
 #include <SoftwareSerial.h>
 #include <SPI.h>
 #include <Wire.h>
