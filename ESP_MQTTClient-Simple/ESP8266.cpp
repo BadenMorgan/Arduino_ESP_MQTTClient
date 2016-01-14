@@ -57,7 +57,7 @@ possibility of such damage.
 #include "Arduino.h"
 #include "ESP8266.h"
 
-#define _DEBUG_
+//#define _DEBUG_
 //#define ALLDEBUG // may break functionality but will help diagnose connection issues
 
 #ifdef _DEBUG_
@@ -65,27 +65,17 @@ possibility of such damage.
 SoftwareSerial mySerial(8, 9); // RX, TX
 #endif
 
-//standard variables 
 int waittime = 1000;
 byte fails = 0;
 byte attempts = 3;
 byte connectd = 0;
-byte retries = 0;
-byte failed = 5;
+byte retries = 0;;
 
-//if defaults are good
 ESP8266::ESP8266() {
 }
 
-//if the timeout period is not idealk
 ESP8266::ESP8266(int SetWaitTime) {
   waittime = SetWaitTime;
-}
-
-//if there are too few SENDOK messages and you know you can allow for more
-ESP8266::ESP8266(int SetWaitTime, byte setFailed) {
-  waittime = SetWaitTime;
-  failed = setFailed;
 }
 
 //setup comms layer
@@ -403,7 +393,6 @@ void ESP8266::MQTTDisconnect() {
 }
 
 //publish message test
-/*
 void ESP8266::MQTTPublish(byte deviceNo, String message) {
 #ifdef _DEBUG_
   mySerial.print(F("Message:"));
@@ -525,7 +514,7 @@ void ESP8266::MQTTPublish(byte deviceNo, String message) {
       }
     }
     Serial.find("\r\nOK\r\n");*/
-}*/
+}
 
 //subscribe to a topic
 void ESP8266::MQTTSubscribe(String topic) {
@@ -710,7 +699,7 @@ void ESP8266::MQTTPublish(String topic, String message) {
     mySerial.println(F("no SEND OK"));
 #endif
     fails++;
-    if (fails == failed) {
+    if (fails == 5) {
       connectd = 0;
     }
     return;
