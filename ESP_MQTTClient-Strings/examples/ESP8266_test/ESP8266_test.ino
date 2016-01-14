@@ -1,4 +1,4 @@
-//#include <SoftwareSerial.h>
+#include <SoftwareSerial.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <ESP8266.h>
@@ -13,7 +13,7 @@
 #define password "pass"
 #define username "user"
 #define ID "esp_device0"
-
+ 
 //used to count the messages being published and append to each message
 int count = 0;
 
@@ -37,84 +37,38 @@ void setup() {
   initESP8266();
 }
 
+
+
 void loop() {
-  if (esp8266.RTNConnected()) {
-    digitalWrite(7, HIGH);
+  if (esp8266.RTNConnected()) {                               //check if the connected flag is set or not
+    digitalWrite(7, HIGH);                                    //set a LED to indicate the broker connection
   } else {
     digitalWrite(7, LOW);
   }
-  MQTTProcess();
-}
-
-//////////////////////////
-//mqtt looping function
-/////////////////////////
-void MQTTProcess() {
-  byte connectdCheck = esp8266.RTNConnected();
-  if (connectdCheck == 1) {
-    if (millis() - stamp4 >= 100) {//play around with shortening
-      stamp4 = millis();
-      SubExec(esp8266.MQTTSubCheck());
-    }
-    if (millis() - stamp3 >= PublishInterval) {
-      stamp3 = millis();
-      PublishQue();
-    }
-
-  }
-  if (!connectdCheck && (millis() - stamp >= 10000)) {
-    esp8266.MQTTConnect(SERVER, PORT, ID, username, password);
-    //esp8266.MQTTConnect(SERVER, PORT, ID);
-    allretries++;
-    if (!esp8266.RTNConnected()) {
-      if (allretries == 3) {
-        initESP8266();
-        allretries = 0;
-      }
-      stamp = millis();
-    } else {
-      esp8266.MQTTSubscribe("hello");
-    }
-  }
-  if (connectdCheck != esp8266.RTNConnected()) {
-    stamp = millis();
-    if (esp8266.RTNConnected() == 0) {
-      esp8266.MQTTDisconnect();
-    }
-  }
-}
-
-/////////////////////////////////////////
-//esp initialization and broker connect
-/////////////////////////////////////////
-void initESP8266() {
-  if(!esp8266.WifiCheck(SSID)){
-    esp8266.Connect(SSID, Pass);
-  }
-  esp8266.MQTTConnect(SERVER, PORT, ID, username, password);
-  //esp8266.MQTTConnect(SERVER, PORT, ID);
-  if (esp8266.RTNConnected() == 1) {
-    SubhQue();    
-  }
+  MQTTProcess();                                              //run the proccess to check and manage the MQTT connection
 }
 
 ////////////////////////////////////////
-//ESP subscription handling function
+//ESP subscription handling function                
 ///////////////////////////////////////
 /*first parameter is the
  * message received from
  * the library
  */
-void SubExec(String receivedmsg) {
+void SubExec(String topic) {
+  //IGNORE
+////////////////////////////////
   if (receivedmsg != "") {
-    byte sublen = receivedmsg[0];
-    byte topiclen = receivedmsg[2];
-    String topic;
-    for (int i = 3 ; i < topiclen + 3; i ++) {
+    byte sublen = receivedmsg[0];                             //save the entire message length
+    byte topiclen = receivedmsg[2];                           //length of topic string
+    String topic;                                             
+    for (int i = 3 ; i < topiclen + 3; i ++) {                //loop through mssg array and append to the topic string
       topic += receivedmsg[i];
     }
-    if (topic == "hello") {
-      digitalWrite(12, receivedmsg[topiclen + 3] - 48);
+////////////////////////////////
+  //PUT YOUR CODE HERE
+    if (topic == topic) {                                     //check msg topic for desired topic     
+      digitalWrite(12, receivedmsg[topiclen + 3] - 48);       //execute your code here, read byte by byte
     }
   }
 }
@@ -127,17 +81,78 @@ void SubExec(String receivedmsg) {
  *messages in this function
 */
 void PublishQue() {
-  String msg = "hello world";
-  String topic = "device/0";
-  msg += count;
-  count++;
+  String msg = "hello world";                                 //message payload of MQTT package, put your payload here
+  String topic = "device/0";                                  //topic of MQTT package, put your topic here
+  msg += count;                                               //used to increment msg count to keep msgs unique, you can get rid of this if you want
+  count++;'
   esp8266.MQTTPublish(topic, msg);
+  //put more publish msgs here if you want
+  //esp8266.MQTTPublish(yournewtopic, yournewmsg);                           
 }
 
 /////////////////////////
 //Subscribe topics list
 ////////////////////////
 void SubhQue(){
-  esp8266.MQTTSubscribe("hello");  
+  esp8266.MQTTSubscribe("hello");                             //put your subs here with corresponding topics 
 }
+
+//////////////////////////////////////////////////////////////////////
+//you need not worry about this code too much
+//////////////////////////////////////////////////////////////////////
+
+//////////////////////////
+//mqtt looping function
+/////////////////////////
+void MQTTProcess() {
+  byte connectdCheck = esp8266.RTNConnected();                //save the connection status
+  if (connectdCheck == 1) {
+    if (millis() - stamp4 >= 100) {                           //determines how often subs or checked
+      stamp4 = millis();
+      String receivedMsg = esp8266.MQTTSubCheck()                                       
+      SubExec("hello");                                       //parse the received msg to user function
+    }
+    if (millis() - stamp3 >= PublishInterval) {               //publish interval
+      stamp3 = millis();
+      PublishQue();                                           //publish que function set by user
+    }
+
+  }
+  if (!connectdCheck && (millis() - stamp >= 10000)) {
+    esp8266.MQTTConnect(SERVER, PORT, ID, username, password);//connect to broker with username and password
+    //esp8266.MQTTConnect(SERVER, PORT, ID);                  //connect to broker without username and password
+    allretries++;                                             //tracks number of connection tries
+    if (!esp8266.RTNConnected()) {
+      if (allretries == 3) {
+        initESP8266();                                        //reset and re-establish comms with esp
+        allretries = 0;                                      
+      }
+      stamp = millis();
+    } else {
+      SubhQue();                                              //subscribe again after reconnect
+    }
+  }
+  if (connectdCheck != esp8266.RTNConnected()) {              //compare connection status with saved status
+    stamp = millis();
+    if (esp8266.RTNConnected() == 0) {                        //if not connected
+      esp8266.MQTTDisconnect();                               //disconnect from broker to be sure ie send DISCONNEC msg to broker
+    }
+  }
+}
+
+/////////////////////////////////////////
+//esp initialization and broker connect
+/////////////////////////////////////////
+void initESP8266() {
+  if(!esp8266.WifiCheck(SSID)){                               //check if wifi is connected to specified SSID
+    esp8266.Connect(SSID, Pass);                              //connect to specified SSID
+  }
+  esp8266.MQTTConnect(SERVER, PORT, ID, username, password);  //connect to broker with username and password
+  //esp8266.MQTTConnect(SERVER, PORT, ID);                    //connect to broker without username and password
+  if (esp8266.RTNConnected() == 1) {
+    SubhQue();                                                //run subs que
+  }
+}
+
+
 
