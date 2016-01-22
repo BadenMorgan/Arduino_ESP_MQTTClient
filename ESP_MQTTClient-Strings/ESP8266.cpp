@@ -512,7 +512,9 @@ void ESP8266::MQTTPublish(byte deviceNo, String message) {
       }
     }
     Serial.find("\r\nOK\r\n");*/
-}*/
+/*
+}
+*/
 
 //subscribe to a topic
 void ESP8266::MQTTSubscribe(String topic) {

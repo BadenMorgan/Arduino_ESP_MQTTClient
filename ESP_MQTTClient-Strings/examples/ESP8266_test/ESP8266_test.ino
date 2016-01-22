@@ -62,7 +62,7 @@ void loop() {
  * message received from
  * the library
  */
-void SubExec(String topic) {
+void SubExec(String receivedmsg) {
   //IGNORE
 ////////////////////////////////
   if (receivedmsg != "") {
@@ -74,8 +74,8 @@ void SubExec(String topic) {
     }
 ////////////////////////////////
   //PUT YOUR CODE HERE
-    if (topic == topic) {                                     //check msg topic for desired topic     
-      digitalWrite(12, receivedmsg[topiclen + 3] - 48);       //execute your code here, read byte by byte
+    if (topic == "hello") {                                     //check msg topic for desired topic     
+      digitalWrite(12, receivedmsg[topiclen + 3] - 48);       //execute your code here, read byte by byte. My example writes the first byte of the message to an LED try send 0 or one with an LED connected to pin 12
     }
   }
 }
@@ -91,7 +91,7 @@ void PublishQue() {
   String msg = "hello world";                                 //message payload of MQTT package, put your payload here
   String topic = "device/0";                                  //topic of MQTT package, put your topic here
   msg += count;                                               //used to increment msg count to keep msgs unique, you can get rid of this if you want
-  count++;'
+  count++;
   esp8266.MQTTPublish(topic, msg);
   //put more publish msgs here if you want
   //esp8266.MQTTPublish(yournewtopic, yournewmsg);                           
@@ -116,8 +116,8 @@ void MQTTProcess() {
   if (connectdCheck == 1) {
     if (millis() - stamp4 >= 100) {                           //determines how often subs or checked
       stamp4 = millis();
-      String receivedMsg = esp8266.MQTTSubCheck()                                       
-      SubExec("hello");                                       //parse the received msg to user function
+      String receivedMsg = esp8266.MQTTSubCheck();                                      
+      SubExec(receivedMsg);                                   //parse the received msg to user function
     }
     if (millis() - stamp3 >= PublishInterval) {               //publish interval
       stamp3 = millis();

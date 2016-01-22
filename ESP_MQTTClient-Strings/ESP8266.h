@@ -53,6 +53,7 @@ class ESP8266 {
   public:
     ESP8266();
     ESP8266(int SetTimeOut);
+    ESP8266(int SetWaitTime, byte setFailed);
     void InitComms();
     void Connect(String SSID,String Pass);
     void MQTTConnect(String broker, int port, String DeviceID);
