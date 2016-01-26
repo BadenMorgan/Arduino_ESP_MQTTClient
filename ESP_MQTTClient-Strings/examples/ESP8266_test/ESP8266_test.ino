@@ -34,6 +34,7 @@ int PublishInterval = 5000;
 
 //Declare esp8266 and setup waittime
 ESP8266 esp8266(1000);
+//ESP8266 esp8266(1000,8); //can be used to make program more lenient towards no send ok messages being received
 
 //count the amount of times the device has failed its connection loop
 byte allretries = 0;
@@ -75,7 +76,9 @@ void SubExec(String receivedmsg) {
 ////////////////////////////////
   //PUT YOUR CODE HERE
     if (topic == "hello") {                                     //check msg topic for desired topic     
-      digitalWrite(12, receivedmsg[topiclen + 3] - 48);       //execute your code here, read byte by byte. My example writes the first byte of the message to an LED try send 0 or one with an LED connected to pin 12
+      digitalWrite(12, receivedmsg[topiclen + 3] - 48);         //execute your code here, read byte by byte. My example writes the first byte of the message to an LED try send 0 or one with an LED connected to pin 12
+      //String temp = "received: " + receivedmsg[topiclen + 3]; 
+      //esp8266.DebugPrint(temp);                               //use to print debug messages outside of library 
     }
   }
 }

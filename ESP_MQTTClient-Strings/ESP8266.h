@@ -64,7 +64,7 @@ class ESP8266 {
     void MQTTSubscribe(String topic);
     String MQTTSubCheck();
     void idler();
-    void DebugPrint(String msg);
+    void DebugPrint(String msg);                                  
     byte WifiCheck(String SSID);
     byte RTNConnected();
   private:
