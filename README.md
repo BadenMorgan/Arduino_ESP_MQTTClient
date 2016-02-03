@@ -13,10 +13,26 @@ for other microcontrollers.
 ##How to use
 Add publish messages in the function "PublishQue()"
 like the one already in the example as desired.
+```
+void PublishQue() {
+  String msg = "hello world";                                 //message payload of MQTT package, put your payload here
+  String topic = "device/0";                                  //topic of MQTT package, put your topic here
+  msg += count;                                               //used to increment msg count to keep msgs unique, you can get rid of this if you want
+  count++;
+  esp8266.MQTTPublish(topic, msg);
+  //put more publish msgs here if you want
+  //esp8266.MQTTPublish(yournewtopic, yournewmsg);
+}
+```
 Change the macro PublishInterval to determine how
 often messages are published, in milli seconds.
 use SubhQue() to subscribe to different topics
 like the one already on the example.
+```
+void SubhQue() {
+  esp8266.MQTTSubscribe("hello");                             //put your subs here with corresponding topics
+}
+```
 Executing code on the messages received must be
 decoded from a string returned by the library which
 has the format: byte 0 = entire message length, 
@@ -24,6 +40,13 @@ byte 1 = ignore, byte 2 = topic length, remaining
 contains topic and message. I have provided an example
 that handles toggling an LED on/off with a 1 or 0
 message.
+```
+if (topic == "hello") {                                     //check msg topic for desired topic
+      digitalWrite(12, receivedmsg[topiclen + 3] - 48);         //execute your code here, read byte by byte. My example writes the first byte of the message to an LED try send 0 or one with an LED connected to pin 12
+      //String temp = "received: " + receivedmsg[topiclen + 3];
+      //esp8266.DebugPrint(temp);                               //use to print debug messages outside of library
+    }
+    ```
 
 
 ##Where to find Firmware
