@@ -89,7 +89,7 @@ is giving you problems
 This is what you should see first run
 once you have put in a broker address
 and port, password and username if needed:
-
+'''
 ***	***	***	***	***
 Resetting module
 checking module connection
@@ -120,5 +120,5 @@ Topic:device/0, Message:hello world4
 SEND OK
 Topic:device/0, Message:hello world5
 SEND OK
-
+'''
 
