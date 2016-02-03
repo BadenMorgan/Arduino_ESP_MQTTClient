@@ -147,7 +147,7 @@ void ESP8266::Connect(String SSID, String Pass) {
 #endif
   }
   delay(1000);
-  
+
   Serial.println(F("AT+CIPMUX=0"));                               //set the single connection mode
 #ifdef ALLDEBUG
   mySerial.println(F("AT+CIPMUX=0"));
@@ -204,7 +204,7 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID) {
 #endif
   delay(waittime);
   unsigned char LVL4[14]  = {0x10, 0x00, 0x00, 0x04, 0x4D, 0x51, 0x54, 0x54, 0x04, 0x02, 0x00, 0x78, 0x00, 0x00};//CONNEC message initialization
-  
+
   byte IDlen = DeviceID.length();                                 //constructing connect message to send to broker with given parameters
   byte msglen;
   msglen = IDlen + 14;
@@ -222,7 +222,7 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID) {
   Serial.println(cmdtemp);
   Serial.flush();
   for (int i = 0; i < msglen; i++) {
-    Serial.write(newcmd[i]);
+    Serial.write(newcmd[i]);                                    //sending CONNEC message
     Serial.flush();
   }
   ClearIncomingSerial();                                         //clearing buffer manualy after sending CONNEC
@@ -281,11 +281,11 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID, String Usern
 #endif
   delay(waittime);
 #ifdef ALLDEBUG
-  ReadSerial();                                               
+  ReadSerial();
 #endif
   //unsigned char LVL3[16]  = {0x10, 0x00, 0x00, 0x06, 0x4D, 0x51, 0x49, 0x73, 0x64, 0x70, 0x03, 0xC2, 0x00, 0x78, 0x00, 0x00};
   unsigned char LVL4[14]  = {0x10, 0x00, 0x00, 0x04, 0x4D, 0x51, 0x54, 0x54, 0x04, 0xC2, 0x00, 0x78, 0x00, 0x00};
-  
+
   byte IDlen = DeviceID.length();                               //constructing connect message to send to broker with parameters given
   byte Userlen = Username.length();
   byte Passlen = Password.length();
@@ -315,7 +315,7 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID, String Usern
   Serial.println(cmdtemp);
   Serial.flush();
   for (int i = 0; i < msglen; i++) {
-    Serial.write(newcmd[i]);
+    Serial.write(newcmd[i]);                                    //sending CONNEC message
     Serial.flush();
   }
   ClearIncomingSerial();                                        //clearing buffer manualy after sending CONNEC
@@ -367,10 +367,10 @@ void ESP8266::MQTTDisconnect() {
 #ifdef _DEBUG_
   mySerial.println(F("********Disconnecting from broker************"));
 #endif
-  unsigned char cmd[2] = {0b11100000, 0x00};                      //disconnect message
+  unsigned char cmd[2] = {0b11100000, 0x00};                       //DISCONNNEC message to send to broker to unregister client
   String cmdtemp = "AT+CIPSEND=";
   cmdtemp += 2;
-  Serial.println(cmdtemp);                                        //sending disconnect message
+  Serial.println(cmdtemp);                                         //sending disconnect message
   delay(waittime);
   for (int i = 0; i < 2; i++) {
     Serial.write(cmd[i]);
@@ -382,13 +382,13 @@ void ESP8266::MQTTDisconnect() {
   }
   mySerial.println();
 #endif
-  delay(waittime);
-  Serial.println(F("AT+CIPCLOSE"));                               //close tcp connection
+  delay(waittime);                                                  //hardwires timeout
+  Serial.println(F("AT+CIPCLOSE"));                                 //close TCP connection
 #ifdef ALLDEBUG
   mySerial.println(F("AT+CIPCLOSE"));
 #endif
-  connectd = 0;
-  ClearIncomingSerial();
+  connectd = 0;                                                     //set status to disconnected
+  ClearIncomingSerial();                                            //clear the serial buffer
 }
 
 //subscribe to a topic
@@ -398,37 +398,42 @@ void ESP8266::MQTTSubscribe(String topic) {
   mySerial.print(",");
   mySerial.println(topic.length());
 #endif
-  //constructing message
-  byte msgLen = topic.length();
-  unsigned char cmd[msgLen + 7];                                  //constructing SUB message
+
+  byte msgLen = topic.length();                                       //constructing message from parameter given
+  unsigned char cmd[msgLen + 7];
   cmd[0] = 0x82;
   cmd[2] = 12;
   cmd[3] = 34;
   cmd[4] = 0;
   cmd[5] = msgLen;
-  cmd[msgLen + 6] = 0;
+
   for (int i = 0; i < msgLen; i++) {
     cmd[6 + i] = topic[i];
   }
   cmd[1] = sizeof(cmd) - 2;
+  cmd[msgLen + 6] = 0;
   String cmdtemp = "AT+CIPSEND=";
   cmdtemp += sizeof(cmd);
   //sending message
-  Serial.println(cmdtemp);                                        //sending SUB message
+  Serial.println(cmdtemp);                                              //sending message
   Serial.flush();
   for (int i = 0; i < sizeof(cmd); i++) {
     Serial.write(cmd[i]);
   }
 #ifdef ALLDEBUG
   mySerial.print(cmdtemp);
-  
+  mySerial.println();
   for (int i = 0; i < sizeof(cmd); i++) {
-    mySerial.write(cmd[i]);
+    mySerial.print(cmd[i]);
+    mySerial.print("'");
   }
   mySerial.println();
 #endif
-  delay(waittime);                                                //wait for send ok and response
-  if (Serial.find("SEND OK\r\n")) {
+  delay(waittime);
+#ifdef  ALLDEBUG
+  ReadSerial();
+#endif//hardwired timeout period for data to come in
+  if (Serial.find("SEND OK\r\n")) {                                          //check the message was sent succesfully
     fails = 0;
 #ifdef _DEBUG_
     mySerial.println(F("SEND OK"));
@@ -437,32 +442,41 @@ void ESP8266::MQTTSubscribe(String topic) {
     connectd = 0;
     return;
   }
-  while (Serial.available()) {
-    if (Serial.find("+IPD,")) {                                   //search for response
-      unsigned char ack[Serial.read()];
-      Serial.read();
-      ack[0] = Serial.read();
-      ack[1] = Serial.read();
-      ack[2] = Serial.read();
-      ack[3] = Serial.read();
-      ack[4] = Serial.read();
-      if (ack[0] == 144 && ack[1] == 3 && ack[2] == 12 && ack[3] == 34 ) {  //check it is the required response
-#ifdef _DEBUG_
-        mySerial.print(F("Subscribed to topic: "));
-        mySerial.println(topic);
+  delay(50);
+#ifdef  ALLDEBUG
+  ReadSerial();
 #endif
-      } else if (ack[4] == 0x80) {
+#ifdef  ALLDEBUG
+  ReadSerial();
+#endif//hardwired timeout period for data to come in
+  if (Serial.find("+IPD,")) {                                                 //look from response froms erver
+    unsigned char ack[Serial.read()];
+    Serial.read();
+    ack[0] = Serial.read();
+    ack[1] = Serial.read();
+    ack[2] = Serial.read();
+    ack[3] = Serial.read();
+    ack[4] = Serial.read();
+    if (ack[0] == 144 && ack[1] == 3 && ack[2] == 12 && ack[3] == 34 ) {    //look for SUBACK message
 #ifdef _DEBUG_
-        mySerial.print(F("Subscribe failed"));
-        connectd = 0;
+      mySerial.print(F("Subscribed to topic: "));
+      mySerial.println(topic);
 #endif
-      } else {
+    } else if (ack[4] == 0x80) {
 #ifdef _DEBUG_
-        mySerial.print(F("Unkown response from server"));
-        connectd = 0;
+      mySerial.print(F("Subscribe failed"));
+      connectd = 0;
 #endif
-      }
+    } else {
+#ifdef _DEBUG_
+      mySerial.print(F("Unkown response from server"));
+      connectd = 0;
+#endif
     }
+  } else {
+#ifdef _DEBUG_
+    mySerial.println(F("Unkown error 1"));                                    //shouldnt get to this point unless the message sent doesnt conform to broker MQTT protocol
+#endif
   }
   delay(100);
   ClearIncomingSerial();
@@ -483,11 +497,11 @@ void ESP8266::MQTTPublish(String topic, String message) {
   mySerial.println();
 #endif
   //constructing message
-  volatile byte topiclen = topic.length();
+  volatile byte topiclen = topic.length();                                     //build the publish message to send the broker
   volatile byte msgLen = message.length() + topic.length() + 6;
   volatile unsigned char cmd[msgLen];
-  volatile unsigned char momcmd[3] = {0x30, 0x00, 0x00,};                   //message header
-  for (int i = 0; i < 3; i++) {                                             //constructing the rest of the message
+  volatile unsigned char momcmd[3] = {0x30, 0x00, 0x00,};
+  for (int i = 0; i < 3; i++) {
     cmd[i] = momcmd[i];
   }
   cmd[3] = topiclen;
@@ -503,9 +517,9 @@ void ESP8266::MQTTPublish(String topic, String message) {
   String cmdtemp = "AT+CIPSEND=";
   cmdtemp += sizeof(cmd);
   //sending message
-  Serial.println(cmdtemp);                                                  //sending the message
+  Serial.println(cmdtemp);
   for (int i = 0; i < sizeof(cmd); i++) {
-    Serial.write(cmd[i]);
+    Serial.write(cmd[i]);                                                     //publish message
   }
   //ClearIncomingSerial();
 #ifdef ALLDEBUG
@@ -515,17 +529,17 @@ void ESP8266::MQTTPublish(String topic, String message) {
   }
   mySerial.println();
 #endif
-  delay(waittime);                                                          //timeout
+  delay(waittime);
   byte sentflag = 0;
-  byte temp[7] = {0, 0, 0, 0, 0, 0, 0};                                     //temparary buffer for searching through the repsonse
+  byte temp[7] = {0, 0, 0, 0, 0, 0, 0};                                     //used to check if the broker is sending messages to the device or if the message was sent successfully
   while (Serial.available()) {
     byte temp2 = Serial.read() ;
-    if (temp2 == 43) {                                                      //looking for message from broker
+    if (temp2 == 43) {
 #ifdef _DEBUG_
       mySerial.println(F("Breaking out"));
 #endif
       return;
-    } else {                                                                //if no message from broker keep reading comms
+    } else {
       for (int i = 6 ; i > 0 ; i --) {
         temp[i] = temp[i - 1];
       }
@@ -537,9 +551,9 @@ void ESP8266::MQTTPublish(String topic, String message) {
         mySerial.print(",");
       }
 #endif
-      if (temp[0] == 84 && temp[1] == 65) {                                 //if seeing echo turn off
+      if (temp[0] == 84 && temp[1] == 65) {
         connectd = 0;
-        Serial.println(F("ATE0"));//turn off echo
+        Serial.println(F("ATE0"));                                          //turn off echo, was a result of a one in a million bug encountered where ESP reset by itself
         delay(100);
 #ifdef _DEBUG_
         while (Serial.available()) {
@@ -548,8 +562,8 @@ void ESP8266::MQTTPublish(String topic, String message) {
 #endif
         break;
       }
-      if (temp[0] == 75 && temp[1] == 79 && temp[2] == 32 && temp[3] == 68 && temp[4] == 78 && temp[5] == 69 && temp[6] == 83 ) {
-        sentflag = 1;                                                     //look for send ok
+      if (temp[0] == 75 && temp[1] == 79 && temp[2] == 32 && temp[3] == 68 && temp[4] == 78 && temp[5] == 69 && temp[6] == 83 ) { //search for send ok
+        sentflag = 1;
         break;
       }
 
@@ -559,6 +573,8 @@ void ESP8266::MQTTPublish(String topic, String message) {
 #ifdef _DEBUG_
   //ReadSerial();
 #endif
+  //check if incoming message before checking if send ok is recieved
+
   if (sentflag)
   {
 #ifdef _DEBUG_
@@ -570,12 +586,33 @@ void ESP8266::MQTTPublish(String topic, String message) {
 #ifdef _DEBUG_
     mySerial.println(F("no SEND OK"));
 #endif
-    fails++;                                                                //count the number of fails
-    if (fails == failed) {                                                  //if more than allowed amount a reconnect must occur
+    fails++;
+    if (fails == failed) {
       connectd = 0;
     }
     return;
   }
+  /*
+   *was for qos 1 check, works but found qos 0 is fine
+   *as the server disconnects the client anyway
+    delay(100);
+    if (Serial.find("+IPD,")) {
+      volatile unsigned char ack[Serial.read()];
+      Serial.read();
+      ack[0] = Serial.read();
+      ack[1] = Serial.read();
+      ack[2] = Serial.read();
+      ack[3] = Serial.read();
+      if (ack[0] == 64 && ack[1] == 2 && ack[2] == 12 && ack[3] == 34 ) {
+  #ifdef _DEBUG_
+        mySerial.println(F("Published message"));
+  #endif
+      } else {
+        connectd = 0;
+      }
+    }
+    Serial.find("\r\nOK\r\n");
+    */
 }
 
 //check for incoming data
@@ -586,24 +623,24 @@ String ESP8266::MQTTSubCheck() {
   //mySerial.println(F("checking subs"));
 #endif
   if (Serial.available()) {
-    if (Serial.find("IPD,")) {                                                //search for message from broker
+    if (Serial.find("IPD,")) {                                     //looks for incoming data from broker
       String temp = "";
       char inctemp;
       while (Serial.available()) {
         inctemp = Serial.read();
-        if (inctemp != 58) {                                                  //only append that which isnt ":"
-          temp.concat(inctemp);
+        if (inctemp != 58){                                        
+          temp.concat(inctemp);                                   // read length of data comming in
         } else {
           break;
         }
       }
       byte len = temp.toInt();
-      for (int i = 0; i <  len + 1 ; i++) {
+      for (int i = 0; i <  len + 1 ; i++) {                      //read actual message received
         if (i == 0) {
-          Serial.read();                                                      //strip first byte of message
+          Serial.read();
         } else {
-          incoming = Serial.read();                                           //read in important part of the message
-          received.concat(incoming);
+          incoming = Serial.read();
+          received.concat(incoming);                              //concatenate the message with the length attached for easy debuging
           delayMicroseconds(100);
         }
       }
@@ -611,7 +648,7 @@ String ESP8266::MQTTSubCheck() {
   }
 #ifdef ALLDEBUG
   if (received != "") {
-    for (int i = 0; i < received.length() ; i ++) {                           
+    for (int i = 0; i < received.length() ; i ++) {
       mySerial.print(received[i]);
       mySerial.print(",");
       mySerial.print(received[i], DEC);
@@ -627,7 +664,7 @@ String ESP8266::MQTTSubCheck() {
   }
 #endif
   ClearIncomingSerial();
-  return received;                                                              //return the important part of the message format is length of message, length of topic, then topic then message and should be decoded as such
+  return received;                                                  //return received message
 }
 
 /*idling function used to check the
@@ -654,7 +691,7 @@ void ESP8266::ClearIncomingSerial() {
 void ESP8266::ReadSerial() {
 #ifdef _DEBUG_
   while (Serial.available()) {
-    mySerial.write(Serial.read());
+    mySerial.print(Serial.read(), HEX);
     mySerial.print(F(","));
   }
 #endif
@@ -670,7 +707,7 @@ void ESP8266::DebugPrint(String msg) {
 //check that the esp is connected to the wifi
 byte ESP8266::WifiCheck(String SSID) {
   byte Wififlag = 1;
-  Serial.println(F("AT+CWJAP?"));                                         //query esp for the SSID it is connected
+  Serial.println(F("AT+CWJAP?"));                                           //requist which SSID the ESP is connected to
 #ifdef _DEBUG_
   mySerial.println(F("checking wifi"));
 #endif
@@ -678,7 +715,7 @@ byte ESP8266::WifiCheck(String SSID) {
   mySerial.println(SSID.length());
 #endif
   delay(100);
-  if (Serial.find("+CWJAP:\"")) {
+  if (Serial.find("+CWJAP:\"")) {                                            //look for response
     for (int i = 0; i < SSID.length() ; i++) {
       char character = Serial.read();
 #ifdef ALLDEBUG
@@ -687,7 +724,7 @@ byte ESP8266::WifiCheck(String SSID) {
       mySerial.write(SSID[i]);
       mySerial.println();
 #endif
-      if (SSID[i] != character) {                                           //compare connected SSID with desired SSID
+      if (SSID[i] != character) {                                             //check the connected SSID matches the desired SSID
         Wififlag = 0;
       }
     }
@@ -707,10 +744,9 @@ byte ESP8266::WifiCheck(String SSID) {
   if (!Wififlag) {
     connectd = 0;
   }
-  return Wififlag;
+  return Wififlag;                                                            //return 0 if not desired SSID and 1 if it is the desired SSID
 }
 
-//return the status of the connection related to the broker and SSID combined
 byte ESP8266::RTNConnected() {
   if (connectd) {
     return 1;
