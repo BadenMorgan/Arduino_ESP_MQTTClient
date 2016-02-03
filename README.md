@@ -46,8 +46,7 @@ if (topic == "hello") {                                     //check msg topic fo
       //String temp = "received: " + receivedmsg[topiclen + 3];
       //esp8266.DebugPrint(temp);                               //use to print debug messages outside of library
     }
-    ```
-
+```
 
 ##Where to find Firmware
 Code used to operate the eps8266 which is running
