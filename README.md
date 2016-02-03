@@ -105,7 +105,12 @@ than a remote server like cloud mqtt in
 my expereince so I suggest testing your 
 code on a local server before dealing
 with a remote server to figure out what
-is giving you problems
+is giving you problems. If you cant do this
+mosquitto has a free test broker you can use
+at test.mosquitto.org with the efault port 1883.
+You can also easily setup your own cloudmqtt 
+account for free like I did to make it a true 
+IOT device.
 
 ##Example of Serial Data
 This is what you should see first run
@@ -143,4 +148,4 @@ SEND OK
 Topic:device/0, Message:hello world5
 SEND OK
 ```
-
+##Good luck and happy coding
