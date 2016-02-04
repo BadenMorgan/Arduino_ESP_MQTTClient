@@ -482,11 +482,7 @@ void ESP8266::MQTTSubscribe(String topic) {
   ClearIncomingSerial();
 }
 
-/*
- * this code keeps crashing the board
- * have a feeling it has something to
- * do with software serial but havnt
- * had a chance to diagnose it yet*/
+//publish with string
 void ESP8266::MQTTPublish(String topic, String message) {
 #ifdef _DEBUG_
   mySerial.print(F("Topic:"));
@@ -498,7 +494,7 @@ void ESP8266::MQTTPublish(String topic, String message) {
 #endif
   //constructing message
   volatile byte topiclen = topic.length();                                     //build the publish message to send the broker
-  volatile byte msgLen = message.length() + topic.length() + 6;
+  volatile byte msgLen = message.length() + topic.length() + 4;
   volatile unsigned char cmd[msgLen];
   volatile unsigned char momcmd[3] = {0x30, 0x00, 0x00,};
   for (int i = 0; i < 3; i++) {
@@ -508,10 +504,8 @@ void ESP8266::MQTTPublish(String topic, String message) {
   for (int i = 0; i < topic.length(); i++) {
     cmd[4 + i] = topic[i];
   }
-  cmd[topiclen + 4] = 12;
-  cmd[topiclen + 5] = 34;
   for (int i = 0; i < msgLen; i++) {
-    cmd[topiclen + 6 + i] = message[i];
+    cmd[topiclen + 4 + i] = message[i];
   }
   cmd[1] = sizeof(cmd) - 2;
   String cmdtemp = "AT+CIPSEND=";
@@ -525,7 +519,8 @@ void ESP8266::MQTTPublish(String topic, String message) {
 #ifdef ALLDEBUG
   mySerial.println(cmdtemp);
   for (int i = 0; i < sizeof(cmd); i++) {
-    mySerial.write(cmd[i]);
+    mySerial.print(cmd[i], HEX);
+    mySerial.print(",");
   }
   mySerial.println();
 #endif
@@ -615,6 +610,116 @@ void ESP8266::MQTTPublish(String topic, String message) {
     */
 }
 
+//publish with an array
+void ESP8266::MQTTPublish(String topic, byte *message, byte messagelen) {
+#ifdef _DEBUG_
+  mySerial.print(F("Topic:"));
+  mySerial.print(topic);
+  mySerial.print(F(", "));
+  mySerial.print(F("Message:"));
+  for (int i = 0; i < messagelen ; i++) {
+    mySerial.write(*message++);
+    //mySerial.print(",");
+  }
+  message -= (messagelen);
+  mySerial.println();
+#endif
+  //constructing message
+  volatile byte topiclen = topic.length();                                     //build the publish message to send the broker
+  volatile byte msgLen = messagelen + topiclen + 4;
+  volatile unsigned char cmd[msgLen];
+  volatile unsigned char momcmd[3] = {0x30, 0x00, 0x00,};
+  for (int i = 0; i < 3; i++) {
+    cmd[i] = momcmd[i];
+  }
+  cmd[3] = topiclen;
+  for (int i = 0; i < topic.length(); i++) {
+    cmd[4 + i] = topic[i];
+  }
+  for (int i = 0; i < messagelen; i++) {
+    cmd[topiclen + 4 + i] = *message++;
+  }
+  cmd[1] = sizeof(cmd) - 2;
+  String cmdtemp = "AT+CIPSEND=";
+  cmdtemp += sizeof(cmd);
+  //sending message
+  Serial.println(cmdtemp);
+  for (int i = 0; i < sizeof(cmd); i++) {
+    Serial.write(cmd[i]);                                                     //publish message
+  }
+  //ClearIncomingSerial();
+#ifdef ALLDEBUG
+  mySerial.println(cmdtemp);
+  for (int i = 0; i < sizeof(cmd); i++) {
+    mySerial.write(cmd[i]);
+  }
+  mySerial.println();
+#endif
+  delay(waittime);
+  byte sentflag = 0;
+  byte temp[7] = {0, 0, 0, 0, 0, 0, 0};                                     //used to check if the broker is sending messages to the device or if the message was sent successfully
+  while (Serial.available()) {
+    byte temp2 = Serial.read() ;
+    if (temp2 == 43) {
+#ifdef _DEBUG_
+      mySerial.println(F("Breaking out"));
+#endif
+      return;
+    } else {
+      for (int i = 6 ; i > 0 ; i --) {
+        temp[i] = temp[i - 1];
+      }
+      temp[0] = temp2;
+#ifdef ALLDEBUG
+      mySerial.println();
+      for (int i = 0; i < 7 ; i++) {
+        mySerial.print(temp[i]);
+        mySerial.print(",");
+      }
+#endif
+      if (temp[0] == 84 && temp[1] == 65) {
+        connectd = 0;
+        Serial.println(F("ATE0"));                                          //turn off echo, was a result of a one in a million bug encountered where ESP reset by itself
+        delay(100);
+#ifdef _DEBUG_
+        while (Serial.available()) {
+          mySerial.write(Serial.read());
+        }
+#endif
+        break;
+      }
+      if (temp[0] == 75 && temp[1] == 79 && temp[2] == 32 && temp[3] == 68 && temp[4] == 78 && temp[5] == 69 && temp[6] == 83 ) { //search for send ok
+        sentflag = 1;
+        break;
+      }
+
+    }
+  }
+  ClearIncomingSerial();
+#ifdef _DEBUG_
+  //ReadSerial();
+#endif
+  //check if incoming message before checking if send ok is recieved
+
+  if (sentflag)
+  {
+#ifdef _DEBUG_
+    mySerial.println(F("SEND OK"));
+#endif
+    fails = 0;
+  }
+  else {
+#ifdef _DEBUG_
+    mySerial.println(F("no SEND OK"));
+#endif
+    fails++;
+    if (fails == failed) {
+      connectd = 0;
+    }
+    return;
+  }
+}
+
 //check for incoming data
 String ESP8266::MQTTSubCheck() {
   String received = "";
@@ -628,7 +733,7 @@ String ESP8266::MQTTSubCheck() {
       char inctemp;
       while (Serial.available()) {
         inctemp = Serial.read();
-        if (inctemp != 58){                                        
+        if (inctemp != 58) {
           temp.concat(inctemp);                                   // read length of data comming in
         } else {
           break;
@@ -699,6 +804,12 @@ void ESP8266::ReadSerial() {
 
 //print debug message
 void ESP8266::DebugPrint(String msg) {
+#ifdef _DEBUG_
+  mySerial.println(msg);
+#endif
+}
+
+void ESP8266::DebugPrint(int msg) {
 #ifdef _DEBUG_
   mySerial.println(msg);
 #endif

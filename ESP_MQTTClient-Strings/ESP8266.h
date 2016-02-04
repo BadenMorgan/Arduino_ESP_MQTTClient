@@ -60,12 +60,13 @@ class ESP8266 {
     void MQTTConnect(String broker, int port, String DeviceID);
     void MQTTConnect(String broker, int port, String DeviceID, String Username, String Password);
     void MQTTDisconnect();
-    void MQTTPublish(byte deviceNo, String message);
     void MQTTPublish(String topic, String message);
+    void MQTTPublish(String topic, byte *message, byte msglen);
     void MQTTSubscribe(String topic);
     String MQTTSubCheck();
     void idler();
-    void DebugPrint(String msg);                                  
+    void DebugPrint(String msg);
+    void DebugPrint(int msg);                                  
     byte WifiCheck(String SSID);
     byte RTNConnected();
   private:
