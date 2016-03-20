@@ -44,26 +44,16 @@ possibility of such damage.
 #include "Arduino.h"
 #include "ESP8266.h"
 
+#ifdef AUTORESET
+#include "SoftReset.h"
+#endif
+
 #ifdef _DEBUG_
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(SOFTSERIALRX, SOFTSERIALTX); // RX, TX
 #endif
 
-//standard variables
-int waittime = 1000;
-byte attempts = 3;
-byte failed = 5;
-int PublishInterval = 5000;
 
-//standard variable
-uint32_t stamp = 0;
-uint32_t stamp3 = 0;
-uint32_t stamp4 = 0;
-byte connectd = 0;
-byte retries = 0;
-byte fails = 0;
-byte allretries = 0;
-int disconnects = 0;
 
 //if defaults are good
 ESP8266::ESP8266() {
@@ -82,7 +72,7 @@ ESP8266::ESP8266(int SetWaitTime, byte setFailed) {
 
 ESP8266::ESP8266(int SetWaitTime, byte setFailed, int setPubInterval) {
   waittime = SetWaitTime;
-  failed = setFailed;  
+  failed = setFailed;
   PublishInterval = setPubInterval;
 }
 
@@ -124,13 +114,16 @@ void ESP8266::Connect() {
 #ifdef _DEBUG_
     mySerial.println(F("Module Ready"));
 #endif
+    connectd = 128;
   }
   else
   {
 #ifdef _DEBUG_
     mySerial.println(F("Module has no response"));
 #endif
+#ifdef AUTORESET
     soft_restart();
+#endif
   }
 #ifdef _DEBUG_
   mySerial.println(F("turning off echo"));
@@ -143,20 +136,21 @@ void ESP8266::Connect() {
   }
 #endif
   //connect to the wifi
-  boolean connectd = false;
   for (int i = 0; i < 5; i++)                                     //tries to connect to wifi a max of 5 times before
   {
     if (connectWiFi())
     {
-      connectd = 1;
+      connectd |= 1;
       break;
     }
   }
-  if (!connectd) {
+  if (connectd == 128) {
 #ifdef _DEBUG_
     mySerial.println(F("Complete failure to connect to SSID"));
 #endif
+#ifdef AUTORESET
     soft_restart();
+#endif
   }
   delay(1000);
 
@@ -204,7 +198,7 @@ boolean ESP8266::connectWiFi() {
 
 //connect to server without password or username
 void ESP8266::MQTTConnect(String broker, int port, String DeviceID) {
-  if (connectd) retries = 0;
+  if ((connectd & 1) == 1) retries = 0;
   //setting up tcp connection
   String cmd = "AT+CIPSTART=\"TCP\",\"";                            //setup TCP string to connect to broker
   cmd += broker;
@@ -255,7 +249,7 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID) {
       ack[i] = Serial.read();
     }
     if (ack[0] == 32 && ack[1] == 2 && ack[2] == 0 && ack[3] == 0) {//check the connection was successfull
-      connectd = 1;
+      connectd |= 2;
 #ifdef _DEBUG_
       mySerial.println(F("connected to broker"));
 #endif
@@ -268,7 +262,7 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID) {
     mySerial.println(F("NO IPD, Unkown error check ESP or Internet Access"));
 #endif
   }
-  if (connectd == 0) {
+  if ((connectd & 2) != 2) {
 #ifdef _DEBUG_
     mySerial.println(F("unable to connect to broker"));
 #endif
@@ -278,15 +272,13 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID) {
       mySerial.println(F("trying to reconnect"));
 #endif
       MQTTDisconnect();
-      delay(100);
-      MQTTConnect(broker, port, DeviceID);
     }
   }
 }
 
 //connect to server with username and password
 void ESP8266::MQTTConnect(String broker, int port, String DeviceID, String Username, String Password) {
-  if (connectd) retries = 0;
+  if ((connectd & 1) == 1) retries = 0;
   //setting up tcp connection
   String cmd = "AT+CIPSTART=\"TCP\",\"";                        //setup TCP string to connect to broker
   cmd += broker;
@@ -355,7 +347,7 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID, String Usern
       ack[i] = Serial.read();
     }
     if (ack[0] == 32 && ack[1] == 2 && ack[2] == 0 && ack[3] == 0) {//check the connection was successfull
-      connectd = 1;
+      connectd |= 2;
 #ifdef _DEBUG_
       mySerial.println(F("connected to broker"));
 #endif
@@ -367,7 +359,7 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID, String Usern
     mySerial.println(F("NO IPD, Unkown error check ESP or Internet Access"));
 #endif
   }
-  if (connectd == 0) {
+  if ((connectd & 2) != 2) {
 #ifdef _DEBUG_
     mySerial.println(F("undable to connect to broker"));
 #endif
@@ -378,8 +370,6 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID, String Usern
 #endif
       MQTTDisconnect();
       delay(100);
-      MQTTConnect(broker, port, DeviceID, Username, Password );
-
     }
     retries = 0;
   }
@@ -410,7 +400,8 @@ void ESP8266::MQTTDisconnect() {
 #ifdef ALLDEBUG
   mySerial.println(F("AT+CIPCLOSE"));
 #endif
-  connectd = 0;                                                     //set status to disconnected
+  connectd |= 2;                                                    //set status to disconnected
+  connectd ^= 2;
   ClearIncomingSerial();                                            //clear the serial buffer
 }
 
@@ -462,7 +453,8 @@ void ESP8266::MQTTSubscribe(String topic) {
     mySerial.println(F("SEND OK"));
 #endif
   } else {
-    connectd = 0;
+    connectd |= 2;
+    connectd ^= 2;
     return;
   }
   delay(50);
@@ -488,12 +480,14 @@ void ESP8266::MQTTSubscribe(String topic) {
     } else if (ack[4] == 0x80) {
 #ifdef _DEBUG_
       mySerial.print(F("Subscribe failed"));
-      connectd = 0;
+      connectd |= 2;
+      connectd ^= 2;
 #endif
     } else {
 #ifdef _DEBUG_
       mySerial.print(F("Unkown response from server"));
-      connectd = 0;
+      connectd |= 2;
+      connectd ^= 2;
 #endif
     }
   } else {
@@ -570,7 +564,8 @@ void ESP8266::MQTTPublish(String topic, String message) {
       }
 #endif
       if (temp[0] == 84 && temp[1] == 65) {
-        connectd = 0;
+        connectd |= 2;
+        connectd ^= 2;
         Serial.println(F("ATE0"));                                          //turn off echo, was a result of a one in a million bug encountered where ESP reset by itself
         delay(100);
 #ifdef _DEBUG_
@@ -606,7 +601,8 @@ void ESP8266::MQTTPublish(String topic, String message) {
 #endif
     fails++;
     if (fails == failed) {
-      connectd = 0;
+      connectd |= 2;
+      connectd ^= 2;
     }
     return;
   }
@@ -626,7 +622,8 @@ void ESP8266::MQTTPublish(String topic, String message) {
         mySerial.println(F("Published message"));
   #endif
       } else {
-        connectd = 0;
+        connectd |= 2;
+        connectd ^= 2;
       }
     }
     Serial.find("\r\nOK\r\n");
@@ -701,7 +698,8 @@ void ESP8266::MQTTPublish(String topic, byte *message, byte messagelen) {
       }
 #endif
       if (temp[0] == 84 && temp[1] == 65) {
-        connectd = 0;
+        connectd |= 2;
+        connectd ^= 2;
         Serial.println(F("ATE0"));                                          //turn off echo, was a result of a one in a million bug encountered where ESP reset by itself
         delay(100);
 #ifdef _DEBUG_
@@ -737,9 +735,9 @@ void ESP8266::MQTTPublish(String topic, byte *message, byte messagelen) {
 #endif
     fails++;
     if (fails == failed) {
-      connectd = 0;
+      connectd |= 2;
+      connectd ^= 2;
     }
-    return;
   }
 }
 
@@ -895,18 +893,10 @@ byte ESP8266::WifiCheck(String SSID) {
   }
 #endif
   if (!Wififlag) {
-    connectd = 0;
+    connectd |= 3;
+    connectd ^= 3;
   }
   return Wififlag;                                                            //return 0 if not desired SSID and 1 if it is the desired SSID
-}
-
-//from old function
-byte ESP8266::RTNConnected() {
-  if (connectd) {
-    return 1;
-  } else {
-    return 0;
-  }
 }
 
 //used to initialize the ESPdevice
@@ -919,7 +909,7 @@ void ESP8266::initESP8266(void (*SubFunction)()) {
 #else
   MQTTConnect(SERVER, PORT, ID);                    //connect to broker without username and password
 #endif
-  if (connectd == 1) {
+  if ((connectd & 2) == 2) {
     SubFunction();                                                //run subs que
   }
 }
@@ -927,20 +917,19 @@ void ESP8266::initESP8266(void (*SubFunction)()) {
 //used to run an example of proccessing the mqtt code smoothly
 void ESP8266::MQTTProcess(void (*SubFunction)(), void (*SubHandle)(), void (*PublishHandle)()) {
   byte tempcon = connectd;
-  if (connectd == 1) {
-    if (millis() - stamp4 >= 100) {                           //determines how often subs or checked
-      stamp4 = millis();
+  if ((tempcon & 2) == 2) {
+    if (millis() % 100 == 0) {                           //determines how often subs or checked
       String temp = "";
       MQTTSubCheck(SubHandle);
       //parse the received msg to user function
     }
-    if (millis() - stamp3 >= PublishInterval) {               //publish interval
-      stamp3 = millis();
+    if (millis() - stamp >= PublishInterval) {               //publish interval
+      stamp = millis();
       PublishHandle();                                           //publish que function set by user
     }
   }
-  
-  if (connectd != tempcon) {              //compare connection status with saved status
+
+  if ((connectd != tempcon) && ((tempcon & 3) == 1)) {              //compare connection status with saved status
     stamp = millis();
     if (connectd == 0) {                        //if not connected
       MQTTDisconnect();                               //disconnect from broker to be sure ie send DISCONNEC msg to broker
@@ -949,23 +938,27 @@ void ESP8266::MQTTProcess(void (*SubFunction)(), void (*SubHandle)(), void (*Pub
       DebugPrint(disconnects);
     }
   }
-  
-  if (!connectd && (millis() - stamp >= 10000)) {
+
+  if ((tempcon & 3) == 1 && ((millis() - stamp) >= 5000)) {
 #ifdef password
     MQTTConnect(SERVER, PORT, ID, username, password);  //connect to broker with username and password
 #else
     MQTTConnect(SERVER, PORT, ID);                    //connect to broker without username and password
 #endif
     allretries++;                                             //tracks number of connection tries
-    if (!connectd) {
-      if (allretries == 3) {
-        initESP8266(SubFunction); //connect to broker without username and password
+    if ((connectd & 2) != 2) {
+      if (allretries >= 10) {
         allretries = 0;
+        connectd |= 1;
+        connectd ^= 1;
+        initESP8266(SubFunction); //connect to broker without username and password
+        
       }
       stamp = millis();
     } else {
+      allretries = 0;
       SubFunction();                                              //subscribe again after reconnect
     }
-  }  
+  }
 
 }

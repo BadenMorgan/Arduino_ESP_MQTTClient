@@ -12,6 +12,7 @@
 
 int count = 0;
 byte count2 = 0x30;
+uint32_t TimeStamp = 0;
 //used to determine at what interval to publish messages
 
 //Declare esp8266 and setup waittime
@@ -24,18 +25,27 @@ void setup() {
   for (int i = 0 ; i < 4 ; i++ ) {
     pinMode(2 + i, OUTPUT);
   }
+  pinMode(13, OUTPUT);
   esp8266.initESP8266(SubhQue);//connect to broker with username and password
 }
 
 void loop() {
   //this code is used to visually see without debugging wether your device is connected to the broker or not
-  if (esp8266.RTNConnected()) {                               //check if the connected flag is set or not
+  if ((esp8266.connectd & 2) == 2) {                               //check if the connected flag is set or not
     digitalWrite(7, HIGH);                                    //set a LED to indicate the broker connection
   } else {
     digitalWrite(7, LOW);
   }
   ////////////////////////////////////////////
   esp8266.MQTTProcess(SubhQue, SubExec, PublishQue);                           //run the proccess to check and manage the MQTT connection
+  if(millis() - TimeStamp >= 1000){
+    if(digitalRead(13)){
+      digitalWrite(13, LOW);
+    }else{
+      digitalWrite(13,HIGH);
+    }
+    TimeStamp = millis();
+  }
 }
 
 ////////////////////////////////////////

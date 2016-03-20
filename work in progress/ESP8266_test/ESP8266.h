@@ -44,13 +44,15 @@ possibility of such damage.
 #include "Arduino.h"
 #ifndef ESP8266_h
 #define ESP8266_h
-#include "SoftReset.h"
+
+
+
 #include "Wifi_Config.h"
 
-struct SubReceived { 
+struct SubReceived {
   byte len;
   byte topiclen;
-  byte payloadlen; 
+  byte payloadlen;
   char *topic;
   char *payload;
 };
@@ -60,7 +62,22 @@ struct SubReceived {
 class ESP8266 {
 
   public:
-    SubReceived *Sub1 = (struct SubReceived*)malloc(sizeof(struct SubReceived));;
+    //standard variables
+    int waittime = 1000;
+    byte attempts = 3;
+    byte failed = 5;
+    int PublishInterval = 5000;
+
+    //standard variable
+    uint32_t stamp = 0;
+    byte retries = 0;
+    byte fails = 0;
+    byte allretries = 0;
+    int disconnects = 0;
+    byte connectd = 0;
+    
+    SubReceived *Sub1 = (struct SubReceived*)malloc(sizeof(struct SubReceived));
+    
     ESP8266();
     ESP8266(int SetTimeOut);
     ESP8266(int SetWaitTime, byte setFailed);
@@ -79,7 +96,6 @@ class ESP8266 {
     void DebugPrint(String msg);
     void DebugPrint(int msg);
     byte WifiCheck(String SSID);
-    byte RTNConnected();
     void initESP8266(void (*SubFunction)());
     void MQTTProcess(void (*SubFunction)(), void (*SubHandle)(), void (*PublishHandle)());
   private:
