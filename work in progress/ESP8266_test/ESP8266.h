@@ -62,22 +62,19 @@ struct SubReceived {
 class ESP8266 {
 
   public:
-    //standard variables
-    int waittime = 1000;
-    byte attempts = 3;
-    byte failed = 5;
+    //settings variables
+    int waittime = 2500;
+    byte failed = 10;
     int PublishInterval = 5000;
 
     //standard variable
-    uint32_t stamp = 0;
-    byte retries = 0;
     byte fails = 0;
     byte allretries = 0;
     int disconnects = 0;
     byte connectd = 0;
-    
+
     SubReceived *Sub1 = (struct SubReceived*)malloc(sizeof(struct SubReceived));
-    
+
     ESP8266();
     ESP8266(int SetTimeOut);
     ESP8266(int SetWaitTime, byte setFailed);
@@ -93,15 +90,25 @@ class ESP8266 {
     void MQTTSubscribe(String topic);
     void MQTTSubCheck(void (*SubHandle)());
     void idler();
-    void DebugPrint(String msg);
-    void DebugPrint(int msg);
+    inline void DebugPrint(String msg);
+    inline void DebugPrint(int msg);
     byte WifiCheck(String SSID);
-    void initESP8266(void (*SubFunction)());
+    void initESP8266();
     void MQTTProcess(void (*SubFunction)(), void (*SubHandle)(), void (*PublishHandle)());
   private:
     boolean connectWiFi();
     void ClearIncomingSerial();
     void ReadSerial();
+    inline void PUBTaskManager(void (*PublishHandle)());
+    inline void CONNECTaskManager(void (*PublishHandle)());
+    void FindSENDOK();
+    inline void TCPSTART();
+    inline void LINKED();
+    inline void CONNEC();
+    inline void FINDRESPONSE();
+
+    uint32_t stamp = 0;
+    byte FuncActive = 0;
 
 };
 

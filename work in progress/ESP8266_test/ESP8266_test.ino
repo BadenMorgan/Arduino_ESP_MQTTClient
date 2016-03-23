@@ -5,9 +5,9 @@
  * more extensive debugger by commenting in
  * ALLDEBUG
  */
+
 #include <SoftwareSerial.h>
-#include <SPI.h>
-#include <Wire.h>
+
 #include "ESP8266.h"
 
 int count = 0;
@@ -16,9 +16,10 @@ uint32_t TimeStamp = 0;
 //used to determine at what interval to publish messages
 
 //Declare esp8266 and setup waittime
-ESP8266 esp8266(1000);
-//ESP8266 esp8266(1000,8); //can be used to make program more lenient towards no "send ok" messages being received
-//ESP8266 esp8266(1000,8,1000); //can be used to reduce or extend time between automatic publishes 
+ESP8266 esp8266;
+//ESP8266 esp8266(1500);
+//ESP8266 esp8266(0,10); //can be used to make program more lenient towards no "send ok" messages being received
+//ESP8266 esp8266(1000,8,1000); //can be used to reduce or extend time between automatic publishes
 
 void setup() {
   pinMode(7, OUTPUT);
@@ -26,7 +27,7 @@ void setup() {
     pinMode(2 + i, OUTPUT);
   }
   pinMode(13, OUTPUT);
-  esp8266.initESP8266(SubhQue);//connect to broker with username and password
+  esp8266.initESP8266();//connect to broker with username and password
 }
 
 void loop() {
@@ -38,11 +39,11 @@ void loop() {
   }
   ////////////////////////////////////////////
   esp8266.MQTTProcess(SubhQue, SubExec, PublishQue);                           //run the proccess to check and manage the MQTT connection
-  if(millis() - TimeStamp >= 1000){
-    if(digitalRead(13)){
+  if (millis() - TimeStamp >= 1000) {
+    if (digitalRead(13)) {
       digitalWrite(13, LOW);
-    }else{
-      digitalWrite(13,HIGH);
+    } else {
+      digitalWrite(13, HIGH);
     }
     TimeStamp = millis();
   }

@@ -53,6 +53,7 @@ possibility of such damage.
 SoftwareSerial mySerial(SOFTSERIALRX, SOFTSERIALTX); // RX, TX
 #endif
 
+#define ALLDEBUGTEMP
 
 
 //if defaults are good
@@ -66,14 +67,26 @@ ESP8266::ESP8266(int SetWaitTime) {
 
 //if there are too few SENDOK messages and you know you can allow for more
 ESP8266::ESP8266(int SetWaitTime, byte setFailed) {
-  waittime = SetWaitTime;
+  if (SetWaitTime != 0) {
+    waittime = SetWaitTime;
+  }
   failed = setFailed;
 }
 
 ESP8266::ESP8266(int SetWaitTime, byte setFailed, int setPubInterval) {
-  waittime = SetWaitTime;
-  failed = setFailed;
-  PublishInterval = setPubInterval;
+  if (SetWaitTime != 0) {
+    waittime = SetWaitTime;
+  }
+
+  if (setFailed != 0) {
+    failed = setFailed;
+  }
+
+  if (setPubInterval < (2 * waittime)) {
+    PublishInterval = 2 * waittime;
+  } else {
+    PublishInterval = setPubInterval;
+  }
 }
 
 //setup comms layer
@@ -98,10 +111,11 @@ void ESP8266::Connect() {
 #ifdef _DEBUG_
   mySerial.println(F("Resetting module"));
 #endif
-  Serial.println(F("AT+RST"));                                    //resetting ESP module
-  delay(5000);
-  ClearIncomingSerial();                                          //clearing comms from irrelevant data
-  delay(100);
+  Serial.println(F("AT+RST"));
+  Serial.flush();
+  Serial.end();//resetting ESP module
+  delay(1000);
+  Serial.begin(9600);
   //test if the module is ready
 #ifdef _DEBUG_
   mySerial.println(F("checking module connection"));
@@ -198,7 +212,7 @@ boolean ESP8266::connectWiFi() {
 
 //connect to server without password or username
 void ESP8266::MQTTConnect(String broker, int port, String DeviceID) {
-  if ((connectd & 1) == 1) retries = 0;
+  ClearIncomingSerial();
   //setting up tcp connection
   String cmd = "AT+CIPSTART=\"TCP\",\"";                            //setup TCP string to connect to broker
   cmd += broker;
@@ -253,7 +267,6 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID) {
 #ifdef _DEBUG_
       mySerial.println(F("connected to broker"));
 #endif
-      retries = 0;
     }
     ClearIncomingSerial();                                        //clear buffer for next task
 
@@ -266,19 +279,13 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID) {
 #ifdef _DEBUG_
     mySerial.println(F("unable to connect to broker"));
 #endif
-    retries++;
-    if (retries <= attempts) {                                    //if not connected to broker after all that this will force a retry a certain number of times before giving up
-#ifdef _DEBUG_
-      mySerial.println(F("trying to reconnect"));
-#endif
-      MQTTDisconnect();
-    }
+    MQTTDisconnect();
   }
 }
 
 //connect to server with username and password
 void ESP8266::MQTTConnect(String broker, int port, String DeviceID, String Username, String Password) {
-  if ((connectd & 1) == 1) retries = 0;
+  ClearIncomingSerial();
   //setting up tcp connection
   String cmd = "AT+CIPSTART=\"TCP\",\"";                        //setup TCP string to connect to broker
   cmd += broker;
@@ -345,13 +352,13 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID, String Usern
     unsigned char ack[len];
     for (int i = 0; i < len; i++) {                             //break down the message
       ack[i] = Serial.read();
+      delay(2);
     }
     if (ack[0] == 32 && ack[1] == 2 && ack[2] == 0 && ack[3] == 0) {//check the connection was successfull
       connectd |= 2;
 #ifdef _DEBUG_
       mySerial.println(F("connected to broker"));
 #endif
-      retries = 0;
     }
     ClearIncomingSerial();                                      //clear buffer for next task
   } else {
@@ -363,15 +370,7 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID, String Usern
 #ifdef _DEBUG_
     mySerial.println(F("undable to connect to broker"));
 #endif
-    retries++;
-    if (retries <= attempts) {                                  //if not connected to broker after all that this will force a retry a certain number of times before giving up
-#ifdef _DEBUG_
-      mySerial.println(F("trying to reconnect"));
-#endif
-      MQTTDisconnect();
-      delay(100);
-    }
-    retries = 0;
+    MQTTDisconnect();
   }
 }
 
@@ -607,31 +606,32 @@ void ESP8266::MQTTPublish(String topic, String message) {
     return;
   }
   /*
-   *was for qos 1 check, works but found qos 0 is fine
-   *as the server disconnects the client anyway
-    delay(100);
-    if (Serial.find("+IPD,")) {
-      volatile unsigned char ack[Serial.read()];
-      Serial.read();
-      ack[0] = Serial.read();
-      ack[1] = Serial.read();
-      ack[2] = Serial.read();
-      ack[3] = Serial.read();
-      if (ack[0] == 64 && ack[1] == 2 && ack[2] == 12 && ack[3] == 34 ) {
-  #ifdef _DEBUG_
-        mySerial.println(F("Published message"));
-  #endif
-      } else {
-        connectd |= 2;
-        connectd ^= 2;
+     *was for qos 1 check, works but found qos 0 is fine
+     *as the server disconnects the client anyway
+      delay(100);
+      if (Serial.find("+IPD,")) {
+        volatile unsigned char ack[Serial.read()];
+        Serial.read();
+        ack[0] = Serial.read();
+        ack[1] = Serial.read();
+        ack[2] = Serial.read();
+        ack[3] = Serial.read();
+        if (ack[0] == 64 && ack[1] == 2 && ack[2] == 12 && ack[3] == 34 ) {
+    #ifdef _DEBUG_
+          mySerial.println(F("Published message"));
+    #endif
+        } else {
+          connectd |= 2;
+          connectd ^= 2;
+        }
       }
-    }
-    Serial.find("\r\nOK\r\n");
-    */
+      Serial.find("\r\nOK\r\n");
+      */
 }
 
 //publish with an array
 void ESP8266::MQTTPublish(String topic, byte *message, byte messagelen) {
+
 #ifdef _DEBUG_
   mySerial.print(F("Topic:"));
   mySerial.print(topic);
@@ -675,79 +675,16 @@ void ESP8266::MQTTPublish(String topic, byte *message, byte messagelen) {
   }
   mySerial.println();
 #endif
-  delay(waittime);
-  byte sentflag = 0;
-  byte temp[7] = {0, 0, 0, 0, 0, 0, 0};                                     //used to check if the broker is sending messages to the device or if the message was sent successfully
-  while (Serial.available()) {
-    byte temp2 = Serial.read() ;
-    if (temp2 == 43) {
-#ifdef _DEBUG_
-      mySerial.println(F("Breaking out"));
-#endif
-      return;
-    } else {
-      for (int i = 6 ; i > 0 ; i --) {
-        temp[i] = temp[i - 1];
-      }
-      temp[0] = temp2;
-#ifdef ALLDEBUG
-      mySerial.println();
-      for (int i = 0; i < 7 ; i++) {
-        mySerial.print(temp[i]);
-        mySerial.print(",");
-      }
-#endif
-      if (temp[0] == 84 && temp[1] == 65) {
-        connectd |= 2;
-        connectd ^= 2;
-        Serial.println(F("ATE0"));                                          //turn off echo, was a result of a one in a million bug encountered where ESP reset by itself
-        delay(100);
-#ifdef _DEBUG_
-        while (Serial.available()) {
-          mySerial.write(Serial.read());
-        }
-#endif
-        break;
-      }
-      if (temp[0] == 75 && temp[1] == 79 && temp[2] == 32 && temp[3] == 68 && temp[4] == 78 && temp[5] == 69 && temp[6] == 83 ) { //search for send ok
-        sentflag = 1;
-        break;
-      }
-
-    }
-  }
-  ClearIncomingSerial();
-#ifdef _DEBUG_
-  //ReadSerial();
-#endif
-  //check if incoming message before checking if send ok is recieved
-
-  if (sentflag)
-  {
-#ifdef _DEBUG_
-    mySerial.println(F("SEND OK"));
-#endif
-    fails = 0;
-  }
-  else {
-#ifdef _DEBUG_
-    mySerial.println(F("no SEND OK"));
-#endif
-    fails++;
-    if (fails == failed) {
-      connectd |= 2;
-      connectd ^= 2;
-    }
-  }
+  stamp = millis();
+  FuncActive = 2;
 }
 
 //new sub check doesnt work though
 //check for incoming data
 void ESP8266::MQTTSubCheck(void (*SubHandle)()) {
-
+  char incoming;
   String topic = "";
   String payload = "";
-  char incoming;
 #ifdef _DEBUG_
   //mySerial.println(F("checking subs"));
 #endif
@@ -782,11 +719,11 @@ void ESP8266::MQTTSubCheck(void (*SubHandle)()) {
         Sub1->payloadlen = payloadlen;
         for (int i = 0; i <  topiclen; i++) {                     //read actual message received
           topic.concat((char)Serial.read());                              //concatenate the message with the length attached for easy debuging
-          delayMicroseconds(100);
+          delay(2);
         }
         for (int i = 0; i <  payloadlen; i++) {                     //read actual message received
           payload.concat((char)Serial.read());                              //concatenate the message with the length attached for easy debuging
-          delayMicroseconds(100);
+          delay(2);
         }
         Sub1->topic = &topic[0];
         Sub1->payload = &payload[0];
@@ -798,7 +735,7 @@ void ESP8266::MQTTSubCheck(void (*SubHandle)()) {
 #endif
       break;
     }
-    delayMicroseconds(100);
+    delay(2);
   }
   SubHandle();
   ClearIncomingSerial();
@@ -829,6 +766,7 @@ from the ESP*/
 void ESP8266::ClearIncomingSerial() {
   while (Serial.available()) {
     Serial.read();
+    delay(2);
   }
 }
 
@@ -843,13 +781,13 @@ void ESP8266::ReadSerial() {
 }
 
 //print debug message
-void ESP8266::DebugPrint(String msg) {
+inline void ESP8266::DebugPrint(String msg) {
 #ifdef _DEBUG_
   mySerial.println(msg);
 #endif
 }
 
-void ESP8266::DebugPrint(int msg) {
+inline void ESP8266::DebugPrint(int msg) {
 #ifdef _DEBUG_
   mySerial.println(msg);
 #endif
@@ -888,29 +826,20 @@ byte ESP8266::WifiCheck(String SSID) {
 #ifdef _DEBUG_
   if (Wififlag) {
     mySerial.println(F("Connected to SSID"));
+    connectd |= 1;
   } else {
     mySerial.println(F("Not connected to SSID"));
-  }
-#endif
-  if (!Wififlag) {
     connectd |= 3;
     connectd ^= 3;
   }
+#endif
   return Wififlag;                                                            //return 0 if not desired SSID and 1 if it is the desired SSID
 }
 
 //used to initialize the ESPdevice
-void ESP8266::initESP8266(void (*SubFunction)()) {
+void ESP8266::initESP8266() {
   if (!WifiCheck(WifiSSID)) {                             //check if wifi is connected to specified SSID
     Connect();                              //connect to specified SSID
-  }
-#ifdef password
-  MQTTConnect(SERVER, PORT, ID, username, password);  //connect to broker with username and password
-#else
-  MQTTConnect(SERVER, PORT, ID);                    //connect to broker without username and password
-#endif
-  if ((connectd & 2) == 2) {
-    SubFunction();                                                //run subs que
   }
 }
 
@@ -919,24 +848,24 @@ void ESP8266::MQTTProcess(void (*SubFunction)(), void (*SubHandle)(), void (*Pub
   byte tempcon = connectd;
   if ((tempcon & 2) == 2) {
     if (millis() % 100 == 0) {                           //determines how often subs or checked
-      String temp = "";
       MQTTSubCheck(SubHandle);
       //parse the received msg to user function
     }
     if (millis() - stamp >= PublishInterval) {               //publish interval
       stamp = millis();
-      PublishHandle();                                           //publish que function set by user
+      FuncActive = 1;                                           //publish que function set by user
     }
+    PUBTaskManager(PublishHandle);
   }
 
-  if ((connectd != tempcon) && ((tempcon & 3) == 1)) {              //compare connection status with saved status
+  if ((connectd != tempcon) && ((connectd & 3) == 1)) {              //compare connection status with saved status
     stamp = millis();
-    if (connectd == 0) {                        //if not connected
-      MQTTDisconnect();                               //disconnect from broker to be sure ie send DISCONNEC msg to broker
-      disconnects ++;
-      DebugPrint("Disconnected:");
-      DebugPrint(disconnects);
-    }
+    MQTTDisconnect();                                               //disconnect from broker to be sure ie send DISCONNEC msg to broker
+    disconnects ++;
+#ifdef _DEBUG_
+    mySerial.print(F("Disconnected:"));
+    mySerial.println(disconnects);
+#endif
   }
 
   if ((tempcon & 3) == 1 && ((millis() - stamp) >= 5000)) {
@@ -951,14 +880,168 @@ void ESP8266::MQTTProcess(void (*SubFunction)(), void (*SubHandle)(), void (*Pub
         allretries = 0;
         connectd |= 1;
         connectd ^= 1;
-        initESP8266(SubFunction); //connect to broker without username and password
-        
+        initESP8266(); //connect to broker without username and password
+
       }
       stamp = millis();
     } else {
       allretries = 0;
+      fails = 0;
       SubFunction();                                              //subscribe again after reconnect
     }
+  } else  if ((connectd & 3) == 0) {
+    initESP8266();
   }
 
 }
+
+////////////////////////////////////////////
+//task manager used to prioritise functions and execute code relating to PUBlish
+///////////////////////////////////////////
+inline void ESP8266::PUBTaskManager(void (*PublishHandle)()) {
+  switch (FuncActive) {
+    case 1:
+      {
+        PublishHandle();
+        break;
+      }
+    case 2:
+      {
+        FindSENDOK();
+        break;
+      }
+    default:
+      {
+        break;
+      }
+  }
+}
+
+///////////////////////////////////////
+//find a send ok message
+///////////////////////////////////////
+void ESP8266::FindSENDOK() {
+  byte sentflag = 0;
+  volatile byte temp[7] = {0, 0, 0, 0, 0, 0, 0};                                     //used to check if the broker is sending messages to the device or if the message was sent successfully
+  while (Serial.available()) {
+    byte temp2 = Serial.read() ;
+    if (temp2 == 43) {
+#ifdef _DEBUG_
+      mySerial.println(F("Breaking out"));
+#endif
+      FuncActive++;
+      break;
+    } else {
+      for (int i = 6 ; i > 0 ; i --) {
+        temp[i] = temp[i - 1];
+      }
+      temp[0] = temp2;
+
+      if (temp[0] == 84 && temp[1] == 65) {
+        connectd |= 3;
+        connectd ^= 3;
+        Serial.println();
+        Serial.println(F("ATE0"));                                          //turn off echo, was a result of a one in a million bug encountered where ESP reset by itself
+        /*
+        #ifdef _DEBUG_
+                while (Serial.available()) {
+                  mySerial.write(Serial.read());
+                }
+        #endif
+        */
+        break;
+      }
+      if (temp[0] == 75 && temp[1] == 79 && temp[2] == 32 && temp[3] == 68 && temp[4] == 78 && temp[5] == 69 && temp[6] == 83 ) { //search for send ok
+        sentflag = 1;
+        break;
+      } else if (temp[0] == 107 && temp[1] == 110 && temp[2] == 105 && temp[3] == 108 && temp[4] == 110 && temp[5] == 85) { //search for send ok
+        //sentflag = 1;
+#ifdef _DEBUG_
+        mySerial.println(F("Unlink found"));
+#endif
+        break;
+      }
+    }
+    delay(2);
+  }
+
+  if (((millis() - stamp) > waittime) || (sentflag == 1)) {
+    ClearIncomingSerial();
+#ifdef ALLDEBUG
+    mySerial.println();
+    for (int i = 0; i < 7 ; i++) {
+      mySerial.print(temp[i]);
+      mySerial.print(",");
+    }
+#endif
+#ifdef _DEBUG_
+    //ReadSerial();
+#endif
+    //check if incoming message before checking if send ok is recieved
+
+    if (sentflag)
+    {
+#ifdef _DEBUG_
+      mySerial.println(F("SEND OK"));
+#endif
+      fails = 0;
+    }
+    else {
+#ifdef _DEBUG_
+      mySerial.println(F("no SEND OK"));
+#endif
+      fails++;
+      if (fails >= failed) {
+        connectd |= 2;
+        connectd ^= 2;
+      }
+    }
+    FuncActive++;
+  }
+}
+
+////////////////////////////////////////////
+//task manager used to prioritise functions and execute code relating to CONNECt
+///////////////////////////////////////////
+inline void ESP8266::CONNECTaskManager(void (*PublishHandle)()) {
+  switch (FuncActive) {
+    case 1:
+      {
+        PublishHandle();
+        break;
+      }
+    case 2:
+      {
+        FindSENDOK();
+        break;
+      }
+    default:
+      {
+        break;
+      }
+  }
+}
+
+////////////////////////////////////////////
+//following are functions used for connecting to the broker
+///////////////////////////////////////////
+//start tcp connection
+inline void ESP8266::TCPSTART(){
+  
+}
+
+//look for Linked
+inline void ESP8266::LINKED(){
+  
+}
+
+//send CONNEC
+inline void ESP8266::CONNEC(){
+  
+}
+
+//look for IPD ie response from server
+inline void ESP8266::FINDRESPONSE(){
+  
+}
+
