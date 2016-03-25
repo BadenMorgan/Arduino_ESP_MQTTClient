@@ -209,7 +209,6 @@ boolean ESP8266::connectWiFi() {
 //////////////////////////////////////////
 //mqtt code
 /////////////////////////////////////////
-
 //connect to server without password or username
 void ESP8266::MQTTConnect(String broker, int port, String DeviceID) {
   ClearIncomingSerial();
@@ -283,97 +282,6 @@ void ESP8266::MQTTConnect(String broker, int port, String DeviceID) {
   }
 }
 
-//connect to server with username and password
-void ESP8266::MQTTConnect(String broker, int port, String DeviceID, String Username, String Password) {
-  ClearIncomingSerial();
-  //setting up tcp connection
-  String cmd = "AT+CIPSTART=\"TCP\",\"";                        //setup TCP string to connect to broker
-  cmd += broker;
-  cmd += "\",";
-  cmd += port;
-  Serial.println(cmd);
-#ifdef ALLDEBUG
-  mySerial.println(cmd);
-#endif
-  delay(waittime);
-#ifdef ALLDEBUG
-  ReadSerial();
-#endif
-  //unsigned char LVL3[16]  = {0x10, 0x00, 0x00, 0x06, 0x4D, 0x51, 0x49, 0x73, 0x64, 0x70, 0x03, 0xC2, 0x00, 0x78, 0x00, 0x00};
-  unsigned char LVL4[14]  = {0x10, 0x00, 0x00, 0x04, 0x4D, 0x51, 0x54, 0x54, 0x04, 0xC2, 0x00, 0x78, 0x00, 0x00};
-
-  byte IDlen = DeviceID.length();                               //constructing connect message to send to broker with parameters given
-  byte Userlen = Username.length();
-  byte Passlen = Password.length();
-  byte msglen;
-  msglen = IDlen + 18 + Userlen + Passlen;
-  unsigned char newcmd[msglen];
-  for (int i = 0; i < 14 ; i ++) {
-    newcmd[i] = LVL4[i];
-  }
-  newcmd[1] = IDlen + 16 + Userlen + Passlen;
-  newcmd[13] = IDlen;
-  for (int i = 0; i < IDlen ; i++) {
-    newcmd[i + 14] = DeviceID[i];
-  }
-  newcmd[IDlen + 14] = 0;
-  newcmd[IDlen + 15] = Userlen;
-  for (int i = 0; i < Userlen ; i++) {
-    newcmd[i + IDlen + 16] = Username[i];
-  }
-  newcmd[IDlen + 16 + Userlen] = 0;
-  newcmd[IDlen + 17 + Userlen] = Passlen;
-  for (int i = 0; i < Passlen ; i++) {
-    newcmd[i + IDlen + 18 + Userlen] = Password[i];
-  }
-  String cmdtemp = "AT+CIPSEND=";
-  cmdtemp += msglen;
-  Serial.println(cmdtemp);
-  Serial.flush();
-  for (int i = 0; i < msglen; i++) {
-    Serial.write(newcmd[i]);                                    //sending CONNEC message
-    Serial.flush();
-  }
-  ClearIncomingSerial();                                        //clearing buffer manualy after sending CONNEC
-#ifdef ALLDEBUG
-  mySerial.println(cmdtemp);
-  for (int i = 0; i < msglen; i++) {
-    mySerial.print(newcmd[i]);
-    mySerial.print(",");
-  }
-  mySerial.println();
-#endif
-  delay(waittime);                                              //basically a hardwired timeout to wait fora  response from the broker on the status of the connection
-  //look for broker response
-  if (Serial.find("+IPD,"))                                    //read message from broker
-  {
-    byte len = Serial.read();
-    Serial.read();
-    unsigned char ack[len];
-    for (int i = 0; i < len; i++) {                             //break down the message
-      ack[i] = Serial.read();
-      delay(2);
-    }
-    if (ack[0] == 32 && ack[1] == 2 && ack[2] == 0 && ack[3] == 0) {//check the connection was successfull
-      connectd |= 2;
-#ifdef _DEBUG_
-      mySerial.println(F("connected to broker"));
-#endif
-    }
-    ClearIncomingSerial();                                      //clear buffer for next task
-  } else {
-#ifdef _DEBUG_
-    mySerial.println(F("NO IPD, Unkown error check ESP or Internet Access"));
-#endif
-  }
-  if ((connectd & 2) != 2) {
-#ifdef _DEBUG_
-    mySerial.println(F("undable to connect to broker"));
-#endif
-    MQTTDisconnect();
-  }
-}
-
 //disconnect from the broker
 void ESP8266::MQTTDisconnect() {
 #ifdef _DEBUG_
@@ -387,13 +295,6 @@ void ESP8266::MQTTDisconnect() {
   for (int i = 0; i < 2; i++) {
     Serial.write(cmd[i]);
   }
-#ifdef ALLDEBUG
-  mySerial.println(cmdtemp);
-  for (int i = 0; i < 2; i++) {
-    mySerial.write(cmd[i]);
-  }
-  mySerial.println();
-#endif
   delay(waittime);                                                  //hardwires timeout
   Serial.println(F("AT+CIPCLOSE"));                                 //close TCP connection
 #ifdef ALLDEBUG
@@ -499,6 +400,7 @@ void ESP8266::MQTTSubscribe(String topic) {
 }
 
 //publish with string
+
 void ESP8266::MQTTPublish(String topic, String message) {
 #ifdef _DEBUG_
   mySerial.print(F("Topic:"));
@@ -627,7 +529,9 @@ void ESP8266::MQTTPublish(String topic, String message) {
       }
       Serial.find("\r\nOK\r\n");
       */
+  FuncActive = 3;
 }
+
 
 //publish with an array
 void ESP8266::MQTTPublish(String topic, byte *message, byte messagelen) {
@@ -868,26 +772,24 @@ void ESP8266::MQTTProcess(void (*SubFunction)(), void (*SubHandle)(), void (*Pub
 #endif
   }
 
-  if ((tempcon & 3) == 1 && ((millis() - stamp) >= 5000)) {
-#ifdef password
-    MQTTConnect(SERVER, PORT, ID, username, password);  //connect to broker with username and password
-#else
-    MQTTConnect(SERVER, PORT, ID);                    //connect to broker without username and password
-#endif
-    allretries++;                                             //tracks number of connection tries
-    if ((connectd & 2) != 2) {
-      if (allretries >= 10) {
-        allretries = 0;
-        connectd |= 1;
-        connectd ^= 1;
-        initESP8266(); //connect to broker without username and password
-
+  if ((tempcon & 3) == 1) {
+    if ((millis() - stamp) >= 5000) {
+      FuncActive = 1;
+      if ((connectd & 2) != 2) {
+        if (allretries >= 10) {
+          allretries = 0;
+          connectd |= 1;
+          connectd ^= 1;
+          initESP8266(); //connect to broker without username and password
+        }
       }
-      stamp = millis();
-    } else {
+    }
+    CONNECTaskManager();
+    if ((connectd & 3) == 3) {
       allretries = 0;
       fails = 0;
       SubFunction();                                              //subscribe again after reconnect
+      stamp = millis();
     }
   } else  if ((connectd & 3) == 0) {
     initESP8266();
@@ -920,7 +822,7 @@ inline void ESP8266::PUBTaskManager(void (*PublishHandle)()) {
 ///////////////////////////////////////
 //find a send ok message
 ///////////////////////////////////////
-void ESP8266::FindSENDOK() {
+inline void ESP8266::FindSENDOK() {
   byte sentflag = 0;
   volatile byte temp[7] = {0, 0, 0, 0, 0, 0, 0};                                     //used to check if the broker is sending messages to the device or if the message was sent successfully
   while (Serial.available()) {
@@ -942,19 +844,12 @@ void ESP8266::FindSENDOK() {
         connectd ^= 3;
         Serial.println();
         Serial.println(F("ATE0"));                                          //turn off echo, was a result of a one in a million bug encountered where ESP reset by itself
-        /*
-        #ifdef _DEBUG_
-                while (Serial.available()) {
-                  mySerial.write(Serial.read());
-                }
-        #endif
-        */
         break;
       }
       if (temp[0] == 75 && temp[1] == 79 && temp[2] == 32 && temp[3] == 68 && temp[4] == 78 && temp[5] == 69 && temp[6] == 83 ) { //search for send ok
         sentflag = 1;
         break;
-      } else if (temp[0] == 107 && temp[1] == 110 && temp[2] == 105 && temp[3] == 108 && temp[4] == 110 && temp[5] == 85) { //search for send ok
+      } else if (temp[0] == 107 && temp[1] == 110 && temp[2] == 105 && temp[3] == 108 && temp[4] == 110 && temp[5] == 85) { //search for Unlink
         //sentflag = 1;
 #ifdef _DEBUG_
         mySerial.println(F("Unlink found"));
@@ -966,7 +861,6 @@ void ESP8266::FindSENDOK() {
   }
 
   if (((millis() - stamp) > waittime) || (sentflag == 1)) {
-    ClearIncomingSerial();
 #ifdef ALLDEBUG
     mySerial.println();
     for (int i = 0; i < 7 ; i++) {
@@ -1003,16 +897,36 @@ void ESP8266::FindSENDOK() {
 ////////////////////////////////////////////
 //task manager used to prioritise functions and execute code relating to CONNECt
 ///////////////////////////////////////////
-inline void ESP8266::CONNECTaskManager(void (*PublishHandle)()) {
+inline void ESP8266::CONNECTaskManager() {
   switch (FuncActive) {
     case 1:
       {
-        PublishHandle();
+        TCPSTART();
         break;
       }
     case 2:
       {
-        FindSENDOK();
+        LINKED();
+        break;
+      }
+    case 3:
+      {
+        CONNEC();
+        break;
+      }
+    case 4:
+      {
+        FINDRESPONSE();
+        break;
+      }
+    case 99:
+      {
+        FINDRESPONSE();
+        break;
+      }
+    case 100:
+      {
+        FINDRESPONSE();
         break;
       }
     default:
@@ -1026,22 +940,216 @@ inline void ESP8266::CONNECTaskManager(void (*PublishHandle)()) {
 //following are functions used for connecting to the broker
 ///////////////////////////////////////////
 //start tcp connection
-inline void ESP8266::TCPSTART(){
-  
+inline void ESP8266::TCPSTART() {
+#ifdef _DEBUG_
+  mySerial.println(F("Connecting"));
+#endif
+  ClearIncomingSerial();
+  //setting up tcp connection
+  String cmd = "AT+CIPSTART=\"TCP\",\"";                        //setup TCP string to connect to broker
+  cmd += SERVER;
+  cmd += "\",";
+  cmd += PORT;
+  Serial.println(cmd);
+#ifdef ALLDEBUG
+  mySerial.println(cmd);
+#endif
+#ifdef _DEBUG_
+  mySerial.println(F("Checking link"));
+#endif
+  stamp = millis();
+  FuncActive++;
 }
 
 //look for Linked
-inline void ESP8266::LINKED(){
-  
+inline void ESP8266::LINKED() {
+  byte linkflag = 0;
+  volatile byte temp[6] = {0, 0, 0, 0, 0, 0};                                     //used to check if the broker is sending messages to the device or if the message was sent successfully
+  while (Serial.available()) {
+    byte temp2 = Serial.read() ;
+    for (int i = 5 ; i > 0 ; i --) {
+      temp[i] = temp[i - 1];
+    }
+    temp[0] = temp2;
+
+    if (temp[0] == 84 && temp[1] == 65) {
+      connectd |= 2;
+      connectd ^= 2;
+      Serial.println();
+      Serial.println(F("ATE0"));                                          //turn off echo, was a result of a one in a million bug encountered where ESP reset by itself
+      break;
+    }
+    if (temp[0] == 100 && temp[1] == 101 && temp[2] == 107 && temp[3] == 110 && temp[4] == 105 && temp[5] == 76 ) { //search for Linked
+      linkflag = 1;
+      break;
+    } else if (temp[0] == 107 && temp[1] == 110 && temp[2] == 105 && temp[3] == 108 && temp[4] == 110 && temp[5] == 85) { //search for Unlink
+      linkflag = 2;
+      break;
+    }
+
+    delay(2);
+  }
+
+  if (((millis() - stamp) > waittime) || (linkflag != 0)) {
+    if (linkflag == 1)
+    {
+#ifdef _DEBUG_
+      mySerial.println(F("Linked"));
+#endif
+      FuncActive++;
+    }
+    else if (linkflag == 2) {
+#ifdef _DEBUG_
+      mySerial.println(F("Unlink found"));
+#endif
+      MQTTDisconnect();
+      stamp = millis();
+      allretries++;
+      FuncActive = 5;
+    } else {
+#ifdef _DEBUG_
+      mySerial.println(F("Not linked"));
+#endif
+      MQTTDisconnect();
+      stamp = millis();
+      allretries++;
+      FuncActive = 5;
+    }
+  }
 }
 
 //send CONNEC
-inline void ESP8266::CONNEC(){
-  
+inline void ESP8266::CONNEC() {
+#ifdef _DEBUG_
+  mySerial.println(F("Sending CONNEC"));
+#endif
+#ifdef password
+  //unsigned char LVL3[16]  = {0x10, 0x00, 0x00, 0x06, 0x4D, 0x51, 0x49, 0x73, 0x64, 0x70, 0x03, 0xC2, 0x00, 0x78, 0x00, 0x00};
+  unsigned char LVL4[14]  = {0x10, 0x00, 0x00, 0x04, 0x4D, 0x51, 0x54, 0x54, 0x04, 0xC2, 0x00, 0x78, 0x00, 0x00};
+  String DeviceID = ID;
+  String Username = username;
+  String Password = password;
+  byte IDlen = DeviceID.length();                               //constructing connect message to send to broker with parameters given
+  byte Userlen = Username.length();
+  byte Passlen = Password.length();
+  byte msglen;
+  msglen = IDlen + 18 + Userlen + Passlen;
+  unsigned char newcmd[msglen];
+  for (int i = 0; i < 14 ; i ++) {
+    newcmd[i] = LVL4[i];
+  }
+  newcmd[1] = IDlen + 16 + Userlen + Passlen;
+  newcmd[13] = IDlen;
+  for (int i = 0; i < IDlen ; i++) {
+    newcmd[i + 14] = DeviceID[i];
+  }
+  newcmd[IDlen + 14] = 0;
+  newcmd[IDlen + 15] = Userlen;
+  for (int i = 0; i < Userlen ; i++) {
+    newcmd[i + IDlen + 16] = Username[i];
+  }
+  newcmd[IDlen + 16 + Userlen] = 0;
+  newcmd[IDlen + 17 + Userlen] = Passlen;
+  for (int i = 0; i < Passlen ; i++) {
+    newcmd[i + IDlen + 18 + Userlen] = Password[i];
+  }
+  String cmdtemp = "AT+CIPSEND=";
+  cmdtemp += msglen;
+  Serial.println(cmdtemp);
+  Serial.flush();
+  for (int i = 0; i < msglen; i++) {
+    Serial.write(newcmd[i]);                                    //sending CONNEC message
+    Serial.flush();
+  }
+#ifdef _DEBUG_
+  mySerial.println(F("Checking broker response"));
+#endif
+  stamp = millis();
+  FuncActive++;//clearing buffer manualy after sending CONNEC
+#ifdef ALLDEBUG
+  mySerial.println(cmdtemp);
+  for (int i = 0; i < msglen; i++) {
+    mySerial.print(newcmd[i]);
+    mySerial.print(",");
+  }
+  mySerial.println();
+#endif
+#else
+#endif
 }
 
 //look for IPD ie response from server
-inline void ESP8266::FINDRESPONSE(){
-  
+inline void ESP8266::FINDRESPONSE() {
+  byte foundflag = 0;
+  volatile byte temp[6] = {0, 0, 0, 0, 0, 0};                                     //used to check if the broker is sending messages to the device or if the message was sent successfully
+  while (Serial.available()) {
+    byte temp2 = Serial.read() ;
+    for (int i = 5 ; i > 0 ; i --) {
+      temp[i] = temp[i - 1];
+    }
+    temp[0] = temp2;
+    if (temp[0] == 44 && temp[1] == 68 && temp[2] == 80 && temp[3] == 73 && temp[4] == 43) { //search for +IPD,
+      foundflag = 1;
+      break;
+    } else if (temp[0] == 107 && temp[1] == 110 && temp[2] == 105 && temp[3] == 108 && temp[4] == 110 && temp[5] == 85) { //search for Unlink
+      foundflag = 2;
+      break;
+    }
+#ifdef _DEBUGp_
+    mySerial.println();
+    for (int i = 0; i < 7 ; i++) {
+      mySerial.write(temp[i]);
+      mySerial.print(",");
+    }
+#endif
+    delay(2);
+  }
+
+  if (((millis() - stamp) > waittime) || (foundflag != 0)) {
+    if (foundflag == 1)
+    {
+#ifdef _DEBUG_
+      mySerial.println(F("Found IPD"));
+#endif
+      byte len = Serial.read();
+      Serial.read();
+      unsigned char ack[len];
+      for (int i = 0; i < len; i++) {                             //break down the message
+        ack[i] = Serial.read();
+        delay(2);
+      }
+      if (ack[0] == 32 && ack[1] == 2 && ack[2] == 0 && ack[3] == 0) {//check the connection was successfull
+        connectd |= 2;
+#ifdef _DEBUG_
+        mySerial.println(F("connected to broker"));
+#endif
+      } else {
+#ifdef _DEBUG_
+        mySerial.println(F("undable to connect to broker"));
+#endif
+        MQTTDisconnect();
+      }
+      ClearIncomingSerial();
+      stamp = millis();
+      FuncActive++;
+    }
+    else if (foundflag == 2) {
+#ifdef _DEBUG_
+      mySerial.println(F("Unlink found"));
+#endif
+      MQTTDisconnect();
+      stamp = millis();
+      allretries++;
+      FuncActive = 5;
+    } else {
+#ifdef _DEBUG_
+      mySerial.println(F("NO IPD, Unkown error check ESP or Internet Access"));
+#endif
+      MQTTDisconnect();
+      stamp = millis();
+      allretries++;
+      FuncActive = 5;
+    }
+  }
 }
 

@@ -59,6 +59,12 @@ void SubExec() {
         digitalWrite(2 + i, (byte)(esp8266.Sub1->payload[i]) - 48);
       }
     }
+    else{
+      if(esp8266.Sub1->payload == "disconnect"){
+        esp8266.MQTTDisconnect();
+        while(1);
+      }
+    }
     esp8266.Sub1->len = 0;
   }
 }

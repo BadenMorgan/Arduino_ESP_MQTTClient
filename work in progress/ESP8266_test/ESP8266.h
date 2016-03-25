@@ -100,8 +100,8 @@ class ESP8266 {
     void ClearIncomingSerial();
     void ReadSerial();
     inline void PUBTaskManager(void (*PublishHandle)());
-    inline void CONNECTaskManager(void (*PublishHandle)());
-    void FindSENDOK();
+    inline void CONNECTaskManager();
+    inline void FindSENDOK();
     inline void TCPSTART();
     inline void LINKED();
     inline void CONNEC();
