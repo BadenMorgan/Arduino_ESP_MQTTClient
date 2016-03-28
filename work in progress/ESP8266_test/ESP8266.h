@@ -82,15 +82,13 @@ class ESP8266 {
     ESP8266(int SetWaitTime, byte setFailed, int newval, int setPubInterval);
     void InitComms();
     void Connect();
-    void MQTTConnect(String broker, int port, String DeviceID);
-    void MQTTConnect(String broker, int port, String DeviceID, String Username, String Password);
     void MQTTDisconnect();
     void MQTTPublish(String topic, String message);
     void MQTTPublish(String topic, byte *message, byte msglen);
     void MQTTSubscribe(String topic);
     void MQTTSubCheck(void (*SubHandle)());
     void idler();
-    inline void DebugPrint(String msg);
+    void DebugPrint(String msg);
     inline void DebugPrint(int msg);
     byte WifiCheck(String SSID);
     void initESP8266();
@@ -106,7 +104,9 @@ class ESP8266 {
     inline void LINKED();
     inline void CONNEC();
     inline void FINDRESPONSE();
-
+    void ResetStamp();
+    void TCPClose();
+    
     uint32_t stamp = 0;
     byte FuncActive = 0;
 

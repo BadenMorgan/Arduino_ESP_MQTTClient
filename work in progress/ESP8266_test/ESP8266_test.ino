@@ -54,15 +54,16 @@ void loop() {
 ///////////////////////////////////////
 void SubExec() {
   if (esp8266.Sub1->len > 0) { //receivedmsg != "") {
+    String recieved = esp8266.Sub1->payload;
+    esp8266.DebugPrint(recieved);
     if (( ((String)(esp8266.Sub1->topic)) == "hello") && (esp8266.Sub1->payloadlen == 4)) {
       for (int i = 0 ; i < 4 ; i++ ) {
         digitalWrite(2 + i, (byte)(esp8266.Sub1->payload[i]) - 48);
       }
     }
     else{
-      if(esp8266.Sub1->payload == "disconnect"){
+      if(recieved == "disconnect"){
         esp8266.MQTTDisconnect();
-        while(1);
       }
     }
     esp8266.Sub1->len = 0;
