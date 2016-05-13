@@ -1,11 +1,11 @@
 #define WifiSSID "MorganOnly"
 #define WifiPass "1234m0rg@n2015"
 
-#define SERVER "m11.cloudmqtt.com"  //host for mosquitto broker
-#define PORT 18675  //port number for mosquitto broker
+#define SERVER "m21.cloudmqtt.com"  //host for mosquitto broker
+#define PORT 11502  //port number for mosquitto broker
 
-#define password "S3i9xIc5KAJF"
-#define username "ubexgazz"
+#define password "eeSp74dXYRpS"
+#define username "zhodqirz"
 
 #define ID "esp_1"
 

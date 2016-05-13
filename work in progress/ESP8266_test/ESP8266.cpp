@@ -45,7 +45,7 @@ possibility of such damage.
 #include "ESP8266.h"
 
 #ifdef AUTORESET
-#include "SoftReset.h"
+//#include "SoftReset.h"
 #endif
 
 #ifdef _DEBUG_
@@ -101,10 +101,11 @@ void ESP8266::InitComms() {                                       //for debuggin
 
 //setup and connect esp8266
 void ESP8266::Connect() {
+  allretries = 0;
   // Open serial communications and wait for port to open:
 #ifdef _DEBUG_
   mySerial.begin(9600);
-  mySerial.println(F("*\t*\t*\t*\t*"));
+  //mySerial.println(F("*\t*\t*\t*\t*"));
   mySerial.println(F("Resetting module"));
 #endif
   Serial.begin(9600);
@@ -137,14 +138,17 @@ void ESP8266::Connect() {
 #ifdef _DEBUG_
     mySerial.println(F("Module has no response"));
 #endif
-#ifdef AUTORESET
-    soft_restart();
-#else
-    digitalWrite(RESETPIN, HIGH);
-    delay(1000);
-    digitalWrite(RESETPIN, LOW);
+    /*
+    #ifdef AUTORESET
+        soft_restart();
+    #else
+        digitalWrite(RESETPIN, HIGH);
+        delay(1000);
+        digitalWrite(RESETPIN, LOW);
+        return;
+    #endif
+    */
     return;
-#endif
   }
 #ifdef _DEBUG_
   mySerial.println(F("turning off echo"));
@@ -530,6 +534,7 @@ void ESP8266::MQTTSubCheck(void (*SubHandle)()) {
     mySerial.println(Sub1->payload);
   }
 #endif
+  FuncActive = 2;
 }
 
 /*idling function used to check the
@@ -623,6 +628,8 @@ byte ESP8266::WifiCheck(String SSID) {
 void ESP8266::initESP8266() {
   if (!WifiCheck(WifiSSID)) {                             //check if wifi is connected to specified SSID
     Connect();                              //connect to specified SSID
+  } else {
+    connectd |= 1;
   }
 }
 
@@ -630,15 +637,18 @@ void ESP8266::initESP8266() {
 void ESP8266::MQTTProcess(void (*SubFunction)(), void (*SubHandle)(), void (*PublishHandle)()) {
   byte tempcon = connectd;
   if ((tempcon & 2) == 2) {
-    if (millis() % 100 == 0) {                           //determines how often subs or checked
+    /*if (millis() % 100 == 0) {                           //determines how often subs or checked
       MQTTSubCheck(SubHandle);
       //parse the received msg to user function
     }
     if (millis() - stamp >= PublishInterval) {               //publish interval
       ResetStamp();
       FuncActive = 1;                                           //publish que function set by user
-    }
+    }*/
     PUBTaskManager(PublishHandle);
+    if (FuncActive == 3) {
+      MQTTSubCheck(SubHandle);
+    }
   }
 
   if ((connectd != tempcon) && ((connectd & 3) == 1)) {              //compare connection status with saved status
@@ -656,7 +666,6 @@ void ESP8266::MQTTProcess(void (*SubFunction)(), void (*SubHandle)(), void (*Pub
       FuncActive = 1;
       if ((connectd & 2) != 2) {
         if (allretries >= 10) {
-          allretries = 0;
           connectd |= 1;
           connectd ^= 1;
           initESP8266(); //connect to broker without username and password
@@ -711,7 +720,7 @@ inline void ESP8266::FindSENDOK() {
       mySerial.println(F("Breaking out"));
 #endif
       FuncActive++;
-      break;
+      return;
     } else {
       for (int i = 6 ; i > 0 ; i --) {
         temp[i] = temp[i - 1];
@@ -770,7 +779,7 @@ inline void ESP8266::FindSENDOK() {
         connectd ^= 2;
       }
     }
-    FuncActive++;
+    FuncActive = 1;
   }
 }
 
@@ -797,6 +806,7 @@ inline void ESP8266::CONNECTaskManager() {
     case 4:
       {
         FINDRESPONSE();
+        
         break;
       }
     case 99:
@@ -1023,6 +1033,7 @@ inline void ESP8266::FINDRESPONSE() {
 #ifdef _DEBUG_
         mySerial.println(F("connected to broker"));
 #endif
+        FuncActive = 1;
       } else {
 #ifdef _DEBUG_
         mySerial.println(F("undable to connect to broker"));
@@ -1030,7 +1041,7 @@ inline void ESP8266::FINDRESPONSE() {
         FuncActive = 99;
       }
       ResetStamp();
-      FuncActive++;
+      //FuncActive++;
     }
     else if (foundflag == 2) {
 #ifdef _DEBUG_

@@ -63,7 +63,7 @@ class ESP8266 {
 
   public:
     //settings variables
-    int waittime = 2500;
+    int waittime = 10000;
     byte failed = 10;
     int PublishInterval = 5000;
 
@@ -108,7 +108,7 @@ class ESP8266 {
     void TCPClose();
     
     uint32_t stamp = 0;
-    byte FuncActive = 0;
+    byte FuncActive = 1;
 
 };
 

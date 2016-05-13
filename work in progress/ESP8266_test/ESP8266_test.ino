@@ -28,6 +28,7 @@ void setup() {
   }
   pinMode(13, OUTPUT);
   esp8266.initESP8266();//connect to broker with username and password
+  esp8266.DebugPrint("*\t*\t*\t*\t*");
 }
 
 void loop() {
@@ -86,7 +87,7 @@ void PublishQue() {
   esp8266.MQTTPublish(topic, msg);*/
   //publish a message using an array
   byte msg[12] = {0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x00};                                 //message payload of MQTT package, put your payload here
-  String topic = "device/0";                                  //topic of MQTT package, put your topic here
+  String topic = "device/1";                                  //topic of MQTT package, put your topic here
   msg[11] = count2++;                                          //used to increment msg count to keep msgs unique, you can get rid of this if you want
   if (count2 == 0x3A) {
     count2 = 0x30;
