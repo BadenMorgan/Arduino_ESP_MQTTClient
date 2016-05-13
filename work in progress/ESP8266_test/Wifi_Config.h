@@ -14,7 +14,7 @@
 
 #define _DEBUG_
 //#define ALLDEBUG // may break functionality but will help diagnose connection issues
-//#define AUTORESET //used to autoreset the device if there is no communication with the module or if a complete failuer to connect to wifi occured
+#define AUTORESET //used to autoreset the device if there is no communication with the module or if a complete failuer to connect to wifi occured
 #define RESETPIN 12
 
 #define SOFTSERIALRX 8

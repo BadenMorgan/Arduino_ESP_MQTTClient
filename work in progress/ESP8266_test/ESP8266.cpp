@@ -173,14 +173,14 @@ void ESP8266::Connect() {
 #ifdef _DEBUG_
     mySerial.println(F("Complete failure to connect to SSID"));
 #endif
-#ifdef AUTORESET
+/*#ifdef AUTORESET
     soft_restart();
 #else
     digitalWrite(RESETPIN, HIGH);
     delay(1000);
     digitalWrite(RESETPIN, LOW);
     return;
-#endif
+#endif*/
   }
   delay(500);
 
