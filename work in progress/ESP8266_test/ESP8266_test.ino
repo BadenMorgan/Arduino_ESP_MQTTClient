@@ -7,6 +7,7 @@
  */
 
 #include <SoftwareSerial.h>
+#include <SPI.h>
 
 #include "ESP8266.h"
 
@@ -22,6 +23,7 @@ ESP8266 esp8266;
 //ESP8266 esp8266(1000,8,1000); //can be used to reduce or extend time between automatic publishes
 
 void setup() {
+  
   pinMode(7, OUTPUT);
   for (int i = 0 ; i < 4 ; i++ ) {
     pinMode(2 + i, OUTPUT);

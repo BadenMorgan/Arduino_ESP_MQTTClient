@@ -101,6 +101,8 @@ void ESP8266::InitComms() {                                       //for debuggin
 
 //setup and connect esp8266
 void ESP8266::Connect() {
+  pinMode(RESETPIN, OUTPUT);
+  digitalWrite(RESETPIN, HIGH);
   allretries = 0;
   // Open serial communications and wait for port to open:
 #ifdef _DEBUG_
@@ -110,11 +112,21 @@ void ESP8266::Connect() {
 #endif
   Serial.begin(9600);
   Serial.setTimeout(5000);
+#ifdef AUTORESET
   Serial.println(F("AT+RST"));
   Serial.flush();
   Serial.end();//resetting ESP module
   delay(1000);
   Serial.begin(9600);
+#else
+  digitalWrite(RESETPIN, LOW);
+  Serial.end();//resetting ESP module
+  delay(100);
+  digitalWrite(RESETPIN, HIGH);
+  delay(1000);
+  Serial.begin(9600);
+#endif
+
   //test if the module is ready
 #ifdef _DEBUG_
   mySerial.println(F("checking module connection"));
@@ -173,14 +185,14 @@ void ESP8266::Connect() {
 #ifdef _DEBUG_
     mySerial.println(F("Complete failure to connect to SSID"));
 #endif
-/*#ifdef AUTORESET
-    soft_restart();
-#else
-    digitalWrite(RESETPIN, HIGH);
-    delay(1000);
-    digitalWrite(RESETPIN, LOW);
-    return;
-#endif*/
+    /*#ifdef AUTORESET
+        soft_restart();
+    #else
+        digitalWrite(RESETPIN, HIGH);
+        delay(1000);
+        digitalWrite(RESETPIN, LOW);
+        return;
+    #endif*/
   }
   delay(500);
 
@@ -662,7 +674,7 @@ void ESP8266::MQTTProcess(void (*SubFunction)(), void (*SubHandle)(), void (*Pub
   }
 
   if ((tempcon & 3) == 1) {
-    if ((millis() - stamp) >= 5000) {
+    if ((millis() - stamp) >= 5000 && FuncActive > 4) {
       FuncActive = 1;
       if ((connectd & 2) != 2) {
         if (allretries >= 10) {
@@ -806,7 +818,7 @@ inline void ESP8266::CONNECTaskManager() {
     case 4:
       {
         FINDRESPONSE();
-        
+
         break;
       }
     case 99:
@@ -844,15 +856,16 @@ inline void ESP8266::TCPSTART() {
 #ifdef ALLDEBUG
   mySerial.println(cmd);
 #endif
-#ifdef _DEBUG_
-  mySerial.println(F("Checking link"));
-#endif
+
   ResetStamp();
   FuncActive++;
 }
 
 //look for Linked
 inline void ESP8266::LINKED() {
+#ifdef _DEBUG_
+  mySerial.println(F("Checking link"));
+#endif
   byte linkflag = 0;
   volatile byte temp[6] = {0, 0, 0, 0, 0, 0};                                     //used to check if the broker is sending messages to the device or if the message was sent successfully
   while (Serial.available()) {
@@ -895,6 +908,10 @@ inline void ESP8266::LINKED() {
       FuncActive = 99;
       ResetStamp();
       allretries++;
+#ifdef _DEBUG_
+      mySerial.println(F("allretries"));
+      mySerial.println(allretries);
+#endif
     } else {
 #ifdef _DEBUG_
       mySerial.println(F("Not linked"));
@@ -902,6 +919,10 @@ inline void ESP8266::LINKED() {
       FuncActive = 99;
       ResetStamp();
       allretries++;
+#ifdef _DEBUG_
+      mySerial.println(F("allretries"));
+      mySerial.println(allretries);
+#endif
     }
   }
 }
@@ -1050,6 +1071,10 @@ inline void ESP8266::FINDRESPONSE() {
       FuncActive = 99;
       ResetStamp();
       allretries++;
+#ifdef _DEBUG_
+      mySerial.println(F("allretries"));
+      mySerial.println(allretries);
+#endif
     } else {
 #ifdef _DEBUG_
       mySerial.println(F("NO IPD, Unkown error check ESP or Internet Access"));
@@ -1057,6 +1082,10 @@ inline void ESP8266::FINDRESPONSE() {
       FuncActive = 99;
       ResetStamp();
       allretries++;
+#ifdef _DEBUG_
+      mySerial.println(F("allretries"));
+      mySerial.println(allretries);
+#endif
     }
   }
 }
